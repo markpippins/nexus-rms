@@ -55,7 +55,7 @@
                type="text" 
                [ngModel]="searchTerm()"
                (ngModelChange)="searchTerm.set($event)"
-               class="block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+               class="block w-full pl-10 sm:text-sm bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
                placeholder="Search requirements..."
              >
           </div>
@@ -250,7 +250,7 @@ This content will be used as context for the AI when generating requirements."
                     <select 
                         [ngModel]="modalSystemId()" 
                         (ngModelChange)="onModalSystemChange($event)" 
-                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
+                        class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border"
                     >
                         @for(sys of dataService.sortedSystems(); track sys.id) {
                             <option [value]="sys.id">{{ sys.name }}</option>
@@ -263,7 +263,7 @@ This content will be used as context for the AI when generating requirements."
                         [ngModel]="modalSubsystemId()" 
                         (ngModelChange)="onModalSubsystemChange($event)" 
                         [disabled]="!modalAvailableSubsystems().length" 
-                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border disabled:bg-gray-100 dark:disabled:bg-gray-700/50"
+                        class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border disabled:bg-gray-100 dark:disabled:bg-gray-700/50"
                     >
                         @for(sub of modalAvailableSubsystems(); track sub.id) {
                             <option [value]="sub.id">{{ sub.name }}</option>
@@ -276,7 +276,7 @@ This content will be used as context for the AI when generating requirements."
                         [ngModel]="modalFeatureId()" 
                         (ngModelChange)="modalFeatureId.set($event)" 
                         [disabled]="!modalAvailableFeatures().length" 
-                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border disabled:bg-gray-100 dark:disabled:bg-gray-700/50"
+                        class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border disabled:bg-gray-100 dark:disabled:bg-gray-700/50"
                     >
                         @for(feat of modalAvailableFeatures(); track feat.id) {
                             <option [value]="feat.id">{{ feat.name }}</option>
@@ -289,16 +289,16 @@ This content will be used as context for the AI when generating requirements."
 
             <div>
                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-               <input type="text" [(ngModel)]="newReqTitle" (keydown.enter)="saveManual()" class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border" placeholder="e.g. User Login Page" autofocus>
+               <input type="text" [(ngModel)]="newReqTitle" (keydown.enter)="saveManual()" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border" placeholder="e.g. User Login Page" autofocus>
             </div>
             <div>
                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-               <textarea rows="3" [(ngModel)]="newReqDesc" (keydown.control.enter)="saveManual()" class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border" placeholder="Acceptance criteria, details..."></textarea>
+               <textarea rows="3" [(ngModel)]="newReqDesc" (keydown.control.enter)="saveManual()" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border" placeholder="Acceptance criteria, details..."></textarea>
                <p class="text-[10px] text-gray-400 mt-1">Press Ctrl+Enter to save</p>
             </div>
             <div>
                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
-               <select [(ngModel)]="newReqPriority" class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+               <select [(ngModel)]="newReqPriority" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
                   <option value="High">High</option>
@@ -337,7 +337,7 @@ This content will be used as context for the AI when generating requirements."
         <input 
           type="password" 
           [(ngModel)]="apiKeyInput" 
-          class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border" 
+          class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border" 
           placeholder="Enter API Key"
         >
       </div>
@@ -381,7 +381,7 @@ This content will be used as context for the AI when generating requirements."
            <textarea 
              rows="4" 
              [(ngModel)]="userStoryPrompt" 
-             class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-3 border resize-none" 
+             class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-3 border resize-none" 
              placeholder="Enter your user story here..."
            ></textarea>
          }
@@ -426,7 +426,7 @@ This content will be used as context for the AI when generating requirements."
          <div class="grid grid-cols-2 gap-4 mb-4">
              <div>
                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Platform</label>
-                 <select [(ngModel)]="exportPlatform" class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                 <select [(ngModel)]="exportPlatform" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
                     @for(p of platforms; track p) {
                         <option [value]="p">{{ p }}</option>
                     }
@@ -434,7 +434,7 @@ This content will be used as context for the AI when generating requirements."
              </div>
              <div>
                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Model</label>
-                 <select [(ngModel)]="exportModel" class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                 <select [(ngModel)]="exportModel" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
                     @for(m of availableModels(); track m) {
                         <option [value]="m">{{ m }}</option>
                     }
@@ -461,7 +461,7 @@ This content will be used as context for the AI when generating requirements."
              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Generated Context (Editable)</label>
              <textarea 
                 [(ngModel)]="exportContextText"
-                class="flex-1 w-full border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-4 border font-mono text-sm resize-none"
+                class="flex-1 w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-4 border font-mono text-sm resize-none"
              ></textarea>
          </div>
       </div>
