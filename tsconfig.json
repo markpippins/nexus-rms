@@ -13,11 +13,10 @@
     "types": [
       "node"
     ],
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
-    "jsx": "react-jsx",
     "paths": {
       "@/*": [
         "./*"
@@ -25,7 +24,10 @@
     }
   },
   "files": [
-    "./index.tsx"
+    "src/main.ts"
+  ],
+  "include": [
+    "src/**/*.ts"
   ],
   "angularCompilerOptions": {
     "disableTypeScriptVersionCheck": true
