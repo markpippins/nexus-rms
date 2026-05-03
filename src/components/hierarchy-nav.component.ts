@@ -138,23 +138,20 @@ export class HierarchyNavComponent {
 
   deleteSystem(id: string, event: Event) {
     event.stopPropagation();
-    if (confirm('Delete this system? All subsystems and requirements inside it will be lost.')) {
-      this.dataService.deleteSystem(id);
-    }
+    console.log('Deleting system:', id);
+    this.dataService.deleteSystem(id);
   }
 
   deleteSubsystem(systemId: string, subId: string, event: Event) {
     event.stopPropagation();
-    if (confirm('Delete this subsystem? All features and requirements inside it will be lost.')) {
-      this.dataService.deleteSubsystem(systemId, subId);
-    }
+    console.log('Deleting subsystem:', subId, 'from system:', systemId);
+    this.dataService.deleteSubsystem(systemId, subId);
   }
 
   deleteFeature(systemId: string, subId: string, featId: string, event: Event) {
     event.stopPropagation();
-    if (confirm('Delete this feature? All requirements inside it will be lost.')) {
-      this.dataService.deleteFeature(systemId, subId, featId);
-    }
+    console.log('Deleting feature:', featId, 'from subsystem:', subId);
+    this.dataService.deleteFeature(systemId, subId, featId);
   }
 
   // --- Collapsible Logic ---

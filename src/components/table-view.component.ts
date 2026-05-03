@@ -87,8 +87,7 @@ export class TableViewComponent {
 
   deleteReq(id: string, event: Event) {
     event.stopPropagation();
-    if(confirm('Are you sure you want to delete this requirement?')) {
-      this.dataService.deleteRequirement(id);
-    }
+    console.log('Deleting requirement:', id);
+    this.dataService.deleteRequirement(id);
   }
 }
