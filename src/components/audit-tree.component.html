@@ -1,0 +1,115 @@
+<div class="h-full flex flex-col bg-white dark:bg-gray-800 transition-colors">
+  <!-- Header -->
+  <div class="px-3 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Audit Files</h2>
+      <button 
+        (click)="syncFiles()"
+        [disabled]="dataService.auditLoading()"
+        class="p-1 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded"
+        title="Sync from disk"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" [class.animate-spin]="dataService.auditLoading()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    </div>
+    <!-- Search -->
+    <div class="relative">
+      <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+        <svg class="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </div>
+      <input 
+        type="text" 
+        [ngModel]="searchQuery()" 
+        (ngModelChange)="searchQuery.set($event)"
+        class="block w-full pl-8 pr-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400"
+        placeholder="Search files..."
+      >
+    </div>
+  </div>
+
+  <!-- File Count -->
+  <div class="px-3 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
+    {{ dataService.auditFiles().length }} files synced
+  </div>
+
+  <!-- Tree -->
+  <div class="flex-1 overflow-y-auto overflow-x-hidden py-1">
+    @if (dataService.auditLoading() && dataService.auditFiles().length === 0) {
+      <div class="flex items-center justify-center py-8">
+        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+      </div>
+    } @else if (filteredTree().length === 0) {
+      <div class="px-3 py-6 text-center">
+        <p class="text-xs text-gray-400 dark:text-gray-500">
+          @if (searchQuery()) {
+            No files match "{{ searchQuery() }}"
+          } @else {
+            No audit files found. Click sync to scan from disk.
+          }
+        </p>
+      </div>
+    } @else {
+      @for (node of filteredTree(); track node.path) {
+        <ng-container *ngTemplateOutlet="treeNodeTpl; context: { $implicit: node, depth: 0 }"></ng-container>
+      }
+    }
+  </div>
+</div>
+
+<!-- Recursive tree node template -->
+<ng-template #treeNodeTpl let-node let-depth="depth">
+  @if (node.type === 'directory') {
+    <div>
+      <button 
+        (click)="toggleDir(node.path)"
+        class="w-full flex items-center gap-1.5 py-1 pr-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors group"
+        [style.padding-left.px]="12 + depth * 16"
+      >
+        <!-- Chevron -->
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          class="h-3 w-3 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform duration-150"
+          [class.rotate-90]="isExpanded(node.path)"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <!-- Folder icon -->
+        <svg class="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+        </svg>
+        <span class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{{ node.name }}</span>
+      </button>
+      @if (isExpanded(node.path) && node.children) {
+        @for (child of node.children; track child.path) {
+          <ng-container *ngTemplateOutlet="treeNodeTpl; context: { $implicit: child, depth: depth + 1 }"></ng-container>
+        }
+      }
+    </div>
+  } @else {
+    <button 
+      (click)="selectFile(node)"
+      class="w-full flex items-center gap-1.5 py-1 pr-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+      [class.bg-blue-50]="isSelected(node.path)"
+      [class.dark:bg-blue-900/20]="isSelected(node.path)"
+      [style.padding-left.px]="28 + depth * 16"
+    >
+      <!-- File icon -->
+      <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <span 
+        class="text-xs truncate"
+        [class.text-blue-600]="isSelected(node.path)"
+        [class.dark:text-blue-400]="isSelected(node.path)"
+        [class.font-semibold]="isSelected(node.path)"
+        [class.text-gray-600]="!isSelected(node.path)"
+        [class.dark:text-gray-400]="!isSelected(node.path)"
+      >{{ node.name }}</span>
+    </button>
+  }
+</ng-template>

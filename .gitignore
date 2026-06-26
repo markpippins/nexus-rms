@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.angular
+bun.lock
+package-lock.json
 
 # Editor directories and files
 .vscode/*

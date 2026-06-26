@@ -1,0 +1,606 @@
+<div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto p-6">
+    <!-- Distribution Panel -->
+    @if (dataService.harvestShowDistribution()) {
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-800 p-5 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Distribution</h3>
+          <button (click)="dataService.harvestShowDistribution.set(false)" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        @if (dataService.harvestDistributionLoading()) {
+          <div class="flex items-center justify-center py-8">
+            <svg class="animate-spin h-5 w-5 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          </div>
+        } @else if (dataService.harvestDistributionData()) {
+          <div class="space-y-4">
+            <!-- Totals -->
+            @if (dataService.harvestDistributionData().totals) {
+              <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <span>{{ dataService.harvestDistributionData().totals.total_harvests }} harvests</span>
+                <span>·</span>
+                <span>{{ dataService.harvestDistributionData().totals.total_candidates }} candidates</span>
+                <span>·</span>
+                <span>avg {{ dataService.harvestDistributionData().totals.avg_candidates_per_harvest }}c/harvest</span>
+              </div>
+            }
+            <!-- Turn Distribution Histogram -->
+            @if (dataService.harvestDistributionData().turnDistribution?.length) {
+              <div>
+                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Conversation Length</h4>
+                <div class="flex items-end gap-1 h-20">
+                  @for (bucket of dataService.harvestDistributionData().turnDistribution; track bucket.bucket) {
+                    <div class="flex-1 flex flex-col items-center gap-1" [title]="bucket.bucket + ' turns: ' + bucket.harvest_count + ' harvests'">
+                      <div class="w-full rounded-t bg-purple-400 dark:bg-purple-500 min-h-[4px] transition-all"
+                           [style.height]="(bucket.harvest_count / (dataService.harvestDistributionData().turnDistribution[0]?.harvest_count || 1) * 100) + '%'">
+                      </div>
+                      <span class="text-[9px] text-gray-400 dark:text-gray-500">{{ bucket.bucket }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+            <!-- Block Types -->
+            @if (dataService.harvestDistributionData().blockTypeDistribution?.length) {
+              <div>
+                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Block Types</h4>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  @for (bt of dataService.harvestDistributionData().blockTypeDistribution; track bt.block_type) {
+                    <span class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
+                      {{ bt.block_type }} <span class="text-gray-400">{{ bt.cnt }}</span>
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+            <!-- Top Tags -->
+            @if (dataService.harvestDistributionData().topTags?.length) {
+              <div>
+                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Top Tags</h4>
+                <div class="flex items-center gap-1 flex-wrap">
+                  @for (tag of dataService.harvestDistributionData().topTags; track tag.tag) {
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">
+                      {{ tag.tag }} <span class="text-amber-500">{{ tag.cnt }}</span>
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+    @if (dataService.harvestsError()) {
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm text-red-700 dark:text-red-400">{{ dataService.harvestsError() }}</span>
+        </div>
+        <button (click)="dataService.fetchHarvests()" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
+      </div>
+    }
+    @if (dataService.harvestsLoading()) {
+      <div class="flex items-center justify-center py-32">
+        <svg class="animate-spin h-8 w-8 text-amber-500" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+    } @else if (dataService.harvestFilteredHarvests().length === 0) {
+      <div class="flex items-center justify-center py-32">
+        <div class="text-center">
+          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <p class="text-gray-400 dark:text-gray-500 font-medium">No harvests found</p>
+          <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
+            @if (dataService.harvestSearchTerm()) { Try a different search term. } @else { Run the harvest pipeline to populate data. }
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div class="space-y-3">
+        @for (harvest of dataService.harvestFilteredHarvests(); track harvest.id) {
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all">
+            <!-- Harvest Header -->
+            <div class="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+              <button
+                (click)="toggleHarvest(harvest.id)"
+                class="flex-shrink-0"
+              >
+                <svg class="w-3 h-3 text-gray-400 transition-transform"
+                     [class.rotate-90]="selectedHarvestId() === harvest.id"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                    {{ harvest.source_filename || 'Untitled Harvest' }}
+                  </span>
+                  @if (harvest.model) {
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex-shrink-0">
+                      {{ harvest.model }}
+                    </span>
+                  }
+                </div>
+                <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
+                  <span class="font-mono truncate max-w-xs" [title]="harvest.source_path">
+                    {{ truncatePath(harvest.source_path) }}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                    {{ harvest.total_candidates }}c
+                  </span>
+                  @if (dataService.harvestSortMode() !== 'candidate_count' && harvest.turns !== undefined) {
+                    <span class="flex items-center gap-1">
+                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                      {{ formatMetric(harvest.turns) }}t
+                    </span>
+                  }
+                  @if (dataService.harvestSortMode() === 'code_blocks' || dataService.harvestSortMode() === 'block_density') {
+                    <span class="flex items-center gap-1">
+                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                      {{ formatMetric(harvest.code_blocks) }} code
+                    </span>
+                  }
+                  @if (dataService.harvestSortMode() === 'keyword_hits') {
+                    <span class="flex items-center gap-1">
+                      <span class="inline-block w-1 h-1 rounded-full bg-amber-400"></span>
+                      {{ formatMetric(harvest.keyword_hits) }} hits
+                    </span>
+                  }
+                  @if (dataService.harvestSortMode() === 'tag_frequency') {
+                    <span class="flex items-center gap-1">
+                      <span class="inline-block w-1 h-1 rounded-full bg-violet-400"></span>
+                      {{ formatMetric(harvest.tag_frequency) }} tags
+                    </span>
+                    @if (harvest.tags?.length) {
+                      <span class="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[200px]" [title]="harvest.tags.join(', ')">
+                        {{ formatTags(harvest.tags) }}
+                      </span>
+                    }
+                  }
+                  <span class="flex items-center gap-1">
+                    <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                    {{ formatDate(harvest.created_at) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button
+                  (click)="openTranscript(harvest); $event.stopPropagation()"
+                  class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  title="View Transcript"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                  </svg>
+                </button>
+                @if (harvest.tags && harvest.tags.length > 0) {
+                  <div class="hidden sm:flex items-center gap-1">
+                    @for (tag of harvest.tags.slice(0, 2); track tag) {
+                      <span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
+                        {{ tag }}
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Candidates -->
+            @if (selectedHarvestId() === harvest.id) {
+              <div class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <!-- Promote to Plan bar -->
+                @if (usefulCandidates.length > 0) {
+                  <div class="px-5 py-2.5 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/30 flex items-center justify-between">
+                    <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                      {{ usefulCandidates.length }} useful candidate{{ usefulCandidates.length !== 1 ? 's' : '' }}
+                    </span>
+                    <div class="flex items-center gap-2">
+                      @if (promoteToPlanResult()) {
+                        <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToPlanResult() }}</span>
+                        <button (click)="promoteToPlanResult.set(null)" class="text-gray-400 hover:text-gray-600">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                      } @else {
+                        <button
+                          (click)="promoteToPlan()"
+                          [disabled]="promotingToPlan()"
+                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        >
+                          @if (promotingToPlan()) {
+                            <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          }
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                          Promote to Plan
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (candidatesLoading()) {
+                  <div class="flex items-center justify-center py-8">
+                    <svg class="animate-spin h-5 w-5 text-amber-500" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                  </div>
+                } @else if (selectedHarvestCandidates().length === 0) {
+                  <div class="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
+                    No candidates in this harvest.
+                  </div>
+                } @else {
+                  <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                    @for (candidate of selectedHarvestCandidates(); track candidate.id) {
+                      <div class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                        <div class="flex items-start justify-between gap-3">
+                          <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                              {{ candidate.title || 'Untitled Candidate' }}
+                            </p>
+                            @if (candidate.intent_description) {
+                              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                                {{ candidate.intent_description }}
+                              </p>
+                            }
+                            <div class="flex items-center gap-2 mt-2 flex-wrap">
+                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                    [class]="getStatusColor(candidate.status)">
+                                {{ candidate.status || 'pending' }}
+                              </span>
+                              @if (candidate.system_id) {
+                                <span class="text-[9px] text-gray-400 dark:text-gray-500">Linked</span>
+                              }
+                              @if (candidate.subsystem_id) {
+                                <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
+                              }
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-1 flex-shrink-0">
+                            <!-- Promote → Useful -->
+                            @if (candidate.status === 'linked' || candidate.status === 'pending') {
+                              <button
+                                (click)="promoteCandidate(candidate)"
+                                [disabled]="promotingId() === candidate.id"
+                                class="p-1 rounded text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                title="Mark as useful"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                              </button>
+                            }
+                            <!-- Reject -->
+                            @if (candidate.status !== 'rejected' && candidate.status !== 'promoted') {
+                              <button
+                                (click)="rejectCandidate(candidate)"
+                                [disabled]="promotingId() === candidate.id"
+                                class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Reject"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                              </button>
+                            }
+                            <!-- View Transcript (inline link to blocks) -->
+                            <button
+                              (click)="openTranscript(harvest)"
+                              class="p-1 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                              title="View in transcript"
+                            >
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Status Bar -->
+  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+    <span>Sorted by {{ dataService.harvestSortLabels[dataService.harvestSortMode()] }}</span>
+    <span>{{ dataService.harvestFilteredHarvests().length }} harvest{{ dataService.harvestFilteredHarvests().length !== 1 ? 's' : '' }} shown</span>
+  </div>
+</div>
+
+<!-- ── Transcript Modal ──────────────────────────────────────── -->
+@if (transcriptOpen()) {
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" (click)="closeTranscript()">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] flex flex-col m-4" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-2 min-w-0">
+        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+        <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ transcriptTitle() }}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        @if (transcriptStats()) {
+          <span class="text-[10px] text-gray-400 dark:text-gray-500">
+            {{ transcriptUnits().length }} turns · {{ transcriptStats().total_blocks }} blocks
+          </span>
+        }
+        <!-- Segmentation Mode Toggle -->
+        <button
+          (click)="toggleSegmentMode()"
+          class="p-1.5 rounded-lg transition-colors"
+          [class]="segmentMode()
+            ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30'
+            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+          title="Toggle segmentation mode"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+          </svg>
+        </button>
+        <button (click)="closeTranscript()" class="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+      @if (transcriptLoading()) {
+        <div class="flex items-center justify-center py-16">
+          <svg class="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        </div>
+      } @else {
+        <!-- Segmentation State Bar -->
+        @if (segmentMode()) {
+          <div class="mb-4 px-4 py-3 rounded-lg border transition-colors" [class]="getStateBarClasses()">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 text-xs">
+                <span class="font-semibold" [class]="getStateBarTextClasses()">
+                  @switch (segmentState()) {
+                    @case ('IDLE') {
+                      Idle — click START on a block to begin
+                    }
+                    @case ('START_SELECTED') {
+                      Start at block #{{ segmentStartBlockId() }} — click END on a later block
+                    }
+                    @case ('SEGMENT_READY') {
+                      #{{ segmentStartBlockId() }} → #{{ segmentEndBlockId() }}
+                    }
+                  }
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                @if (segmentState() === 'SEGMENT_READY') {
+                  <button
+                    (click)="commitSegment()"
+                    [disabled]="committingSegment()"
+                    class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  >
+                    @if (committingSegment()) {
+                      <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    }
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Commit
+                  </button>
+                }
+                @if (segmentState() !== 'IDLE') {
+                  <button
+                    (click)="cancelSegment()"
+                    class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                }
+              </div>
+            </div>
+            @if (segmentError()) {
+              <div class="mt-2 text-xs text-red-600 dark:text-red-400">{{ segmentError() }}</div>
+            }
+          </div>
+        }
+
+        <!-- Committed Segments (collapsible) -->
+        @for (seg of committedSegments(); track seg.id; let segIdx = $index) {
+          <div class="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden mb-3">
+            <div class="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 flex items-center justify-between cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition-colors"
+                 (click)="toggleSegmentExpanded(seg.id)">
+              <div class="flex items-center gap-2">
+                <svg class="w-3 h-3 text-blue-500 transition-transform"
+                     [class.rotate-90]="isSegmentExpanded(seg.id)"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="text-xs font-semibold text-blue-700 dark:text-blue-400">{{ seg.title || 'Segment ' + (segIdx + 1) }}</span>
+                <span class="text-[10px] text-blue-500 dark:text-blue-400 font-mono">
+                  #{{ seg.start_block_index }} → #{{ seg.end_block_index }}
+                </span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium">
+                  {{ seg.segment_type || 'untyped' }}
+                </span>
+              </div>
+            </div>
+            @if (isSegmentExpanded(seg.id)) {
+              <div class="px-4 py-2 text-[11px] text-gray-500 dark:text-gray-400 border-t border-blue-100 dark:border-blue-800/50">
+                @if (seg.notes_md) {
+                  <p class="mb-1">{{ seg.notes_md }}</p>
+                }
+                <span>State: {{ seg.state }} · Source: {{ seg.source }}</span>
+              </div>
+            }
+          </div>
+        }
+
+        @for (unit of transcriptUnits(); track unit.turn_index) {
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <!-- Unit Header -->
+            <div class="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                {{ unit.heading || ('Turn ' + (unit.turn_index + 1)) }}
+              </span>
+              <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ unit.block_count }} blocks</span>
+            </div>
+            <!-- Blocks -->
+            <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+              @for (block of unit.blocks; track block.index) {
+                @let isSuppressed = isBlockSuppressed(block.index);
+
+                <div class="flex transition-colors" [class]="getBlockContainerClasses(block.index)">
+                  <!-- Left rail: segment bracket -->
+                  <div class="w-[3px] flex-shrink-0" [class]="getBlockLeftRailClasses(block.index)"></div>
+
+                  <!-- Block content area -->
+                  <div class="flex-1 min-w-0 px-3 py-2.5">
+                    <!-- Block header -->
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-[9px] font-mono text-gray-400 dark:text-gray-500 select-none">#{{ block.index }}</span>
+                        <span class="text-[9px] px-1 py-0.5 rounded font-medium uppercase tracking-wider"
+                              [class]="getBlockTypeBadgeClasses(block.type)">
+                          {{ block.type }}
+                        </span>
+                      </div>
+
+                      <!-- Segmentation controls -->
+                      @if (segmentMode() && block.type !== 'separator') {
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                          <!-- START toggle -->
+                          <button
+                            (click)="onBlockSegmentStart(block.index)"
+                            class="px-1.5 py-0.5 text-[9px] font-medium rounded transition-colors"
+                            [class]="getSegmentToggleClasses(segmentMode() && segmentState() !== 'IDLE' && segmentStartBlockId() === block.index)"
+                            [title]="segmentMode() && segmentState() !== 'IDLE' && segmentStartBlockId() === block.index ? 'Click again to cancel' : 'Set as segment start'"
+                          >
+                            START
+                          </button>
+                          <!-- END toggle (only if start is selected and block is after start) -->
+                          @if (segmentState() !== 'IDLE' && block.index > (segmentStartBlockId() ?? -1)) {
+                            <button
+                              (click)="onBlockSegmentEnd(block.index)"
+                              class="px-1.5 py-0.5 text-[9px] font-medium rounded transition-colors"
+                              [class]="getSegmentToggleClasses(segmentMode() && segmentState() === 'SEGMENT_READY' && segmentEndBlockId() === block.index)"
+                              title="Set as segment end"
+                            >
+                              END
+                            </button>
+                          }
+                          <!-- Suppression toggle -->
+                          <button
+                            (click)="toggleBlockSuppression(block.index)"
+                            class="p-0.5 rounded transition-colors"
+                            [class]="isSuppressed
+                              ? 'text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                              : 'text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                            [title]="isSuppressed ? 'Unsuppress block' : 'Suppress from BP projection'"
+                          >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                            </svg>
+                          </button>
+                        </div>
+                      }
+                    </div>
+
+                    @if (block.type === 'separator') {
+                      <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
+                    } @else if (block.type === 'code' && block.content) {
+                      <div class="bg-gray-900 dark:bg-black rounded-md overflow-hidden mt-1">
+                        <pre class="p-3 text-xs text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap">{{ block.content }}</pre>
+                      </div>
+                    } @else if (block.type === 'list' && block.items) {
+                      <ul class="list-disc list-inside space-y-1 mt-1">
+                        @for (item of block.items; track $index) {
+                          <li class="text-sm text-gray-600 dark:text-gray-300">{{ item }}</li>
+                        }
+                      </ul>
+                    } @else if (block.type === 'quote' && block.content) {
+                      <blockquote class="border-l-2 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-300 italic mt-1">
+                        {{ block.content }}
+                      </blockquote>
+                    } @else if (block.type === 'diagram' && block.content) {
+                      <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-md p-3 mt-1">
+                        <pre class="text-xs text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap">{{ block.content }}</pre>
+                      </div>
+                    } @else if (block.content) {
+                      <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ block.content }}</p>
+                    } @else {
+                      <span class="text-xs text-gray-400 italic">empty {{ block.type }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (transcriptCandidates().length > 0) {
+          <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Candidates ({{ transcriptCandidates().length }})</h4>
+            <div class="space-y-2">
+              @for (c of transcriptCandidates(); track c.id) {
+                <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                  <span class="text-xs text-gray-700 dark:text-gray-300">{{ c.title }}</span>
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                        [class]="getStatusColor(c.status)">
+                    {{ c.status || 'pending' }}
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+
+    <!-- Hottest Topics Panel -->
+    <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+          <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
+          Hottest Topics
+        </h3>
+        <span class="text-xs text-gray-400 dark:text-gray-500">top 15 tags</span>
+      </div>
+      @if (dataService.harvestHotTopicsLoading()) {
+        <div class="flex items-center justify-center py-4">
+          <svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </div>
+      } @else if (dataService.harvestHotTopicsData().length > 0) {
+        <div class="space-y-1.5">
+          @for (t of dataService.harvestHotTopicsData(); track t.tag) {
+            <div class="flex items-center gap-2 group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded px-2 py-1 transition-colors" (click)="dataService.applyHarvestTagFilter(t.tag)">
+              <span class="text-xs text-gray-600 dark:text-gray-300 w-20 truncate" [title]="t.tag">{{ t.tag }}</span>
+              <div class="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full transition-all duration-300" [style.width.%]="t.pct"></div>
+              </div>
+              <span class="text-xs text-gray-400 dark:text-gray-500 w-8 text-right tabular-nums">{{ t.cnt }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <button (click)="dataService.loadHarvestHotTopics()" class="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400">
+          Load hot topics
+        </button>
+      }
+    </div>
+  </div>
+</div>
+}

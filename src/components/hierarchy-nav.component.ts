@@ -1,9 +1,9 @@
 
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { FormsModule } from '@angular/forms';
-import { System, Subsystem, Feature } from '../models/data.models';
+import { System, Subsystem, Feature, HarvestCandidate } from '../models/data.models';
 
 @Component({
   selector: 'app-hierarchy-nav',
@@ -42,7 +42,14 @@ export class HierarchyNavComponent {
   // Selection
   selectedMoveTargetId = signal<string>('');
 
-  selectSystem(id: string) {
+  selectSystem(id: string, event?: MouseEvent) {
+    // Ctrl/Meta+click on already-selected system clears the filter
+    if (event && (event.ctrlKey || event.metaKey) && this.dataService.selectedSystemId() === id) {
+      this.dataService.selectedSystemId.set(null);
+      this.dataService.selectedSubsystemId.set(null);
+      this.dataService.selectedFeatureId.set(null);
+      return;
+    }
     this.dataService.selectedSystemId.set(id);
     this.dataService.selectedSubsystemId.set(null);
     this.dataService.selectedFeatureId.set(null);
@@ -54,7 +61,14 @@ export class HierarchyNavComponent {
     });
   }
 
-  selectSubsystem(systemId: string, subId: string) {
+  selectSubsystem(systemId: string, subId: string, event?: MouseEvent) {
+    // Ctrl/Meta+click on already-selected subsystem clears the filter
+    if (event && (event.ctrlKey || event.metaKey) && this.dataService.selectedSubsystemId() === subId) {
+      this.dataService.selectedSystemId.set(null);
+      this.dataService.selectedSubsystemId.set(null);
+      this.dataService.selectedFeatureId.set(null);
+      return;
+    }
     this.dataService.selectedSystemId.set(systemId);
     this.dataService.selectedSubsystemId.set(subId);
     this.dataService.selectedFeatureId.set(null);
@@ -71,7 +85,14 @@ export class HierarchyNavComponent {
     });
   }
 
-  selectFeature(systemId: string, subId: string, featureId: string) {
+  selectFeature(systemId: string, subId: string, featureId: string, event?: MouseEvent) {
+    // Ctrl/Meta+click on already-selected feature clears the filter
+    if (event && (event.ctrlKey || event.metaKey) && this.dataService.selectedFeatureId() === featureId) {
+      this.dataService.selectedSystemId.set(null);
+      this.dataService.selectedSubsystemId.set(null);
+      this.dataService.selectedFeatureId.set(null);
+      return;
+    }
     this.dataService.selectedSystemId.set(systemId);
     this.dataService.selectedSubsystemId.set(subId);
     this.dataService.selectedFeatureId.set(featureId);
@@ -303,4 +324,152 @@ export class HierarchyNavComponent {
       }
       return sorted;
   });
+
+  // ── Harvest Candidates Panel ────────────────────────────────────
+  harvestCandidates = signal<HarvestCandidate[]>([]);
+  candidatesLoading = signal(false);
+  candidatesCount = signal(0);
+  showCandidatesPanel = signal(false);
+  private candidatesRequestId = 0; // race-condition guard
+
+  // Candidate context (what level are we viewing candidates for)
+  candidateContext = computed(() => {
+    const sysId = this.dataService.selectedSystemId();
+    const subId = this.dataService.selectedSubsystemId();
+    const featId = this.dataService.selectedFeatureId();
+    if (featId) return { level: 'Feature' as const, id: featId, label: 'feature' };
+    if (subId) return { level: 'Subsystem' as const, id: subId, label: 'subsystem' };
+    if (sysId) return { level: 'System' as const, id: sysId, label: 'system' };
+    return null;
+  });
+
+  // Fetch candidates when selection changes (with race-condition guard)
+  private candidatesEffect = effect(() => {
+    const ctx = this.candidateContext();
+    if (!ctx) {
+      this.harvestCandidates.set([]);
+      this.candidatesCount.set(0);
+      return;
+    }
+
+    const requestId = ++this.candidatesRequestId;
+    this.candidatesLoading.set(true);
+    let promise: Promise<{ candidates: HarvestCandidate[]; count: number }>;
+
+    if (ctx.level === 'System') {
+      promise = this.dataService.getSystemHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
+    } else if (ctx.level === 'Subsystem') {
+      promise = this.dataService.getSubsystemHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
+    } else {
+      promise = this.dataService.getFeatureHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
+    }
+
+    promise.then(({ candidates, count }) => {
+      // Ignore stale responses
+      if (requestId !== this.candidatesRequestId) return;
+      this.harvestCandidates.set(candidates);
+      this.candidatesCount.set(count);
+      this.candidatesLoading.set(false);
+      if (count > 0) this.showCandidatesPanel.set(true);
+    }).catch(() => {
+      if (requestId !== this.candidatesRequestId) return;
+      this.candidatesLoading.set(false);
+    });
+  });
+
+  toggleCandidatesPanel() {
+    this.showCandidatesPanel.update(v => !v);
+  }
+
+  // ── Spawn Plan Flow ─────────────────────────────────────────────
+  showSpawnPlanModal = signal(false);
+  spawnPlanCandidate = signal<HarvestCandidate | null>(null);
+
+  /** Select a candidate and open its detail in the right slide-out panel */
+  viewCandidateDetail(candidate: HarvestCandidate) {
+    // Toggle off if already selected
+    if (this.dataService.selectedHarvestCandidateId() === candidate.id) {
+      this.dataService.selectedHarvestCandidateId.set(null);
+    } else {
+      this.dataService.selectedHarvestCandidateId.set(candidate.id);
+    }
+  }
+
+  /** Watch for spawn plan intent from the right panel detail view */
+  private spawnPlanIntentEffect = effect(() => {
+    const candidate = this.dataService.spawnPlanIntent();
+    if (candidate) {
+      this.openSpawnPlan(candidate, new Event('intent'));
+      // Clear the intent so it doesn't re-fire
+      this.dataService.spawnPlanIntent.set(null);
+    }
+  });
+  spawnPlanSystemId = '';
+  spawnPlanSubsystemId = '';
+  spawnPlanFeatureId = '';
+  spawnPlanPlanRef = '';
+  spawnPlanTitle = '';
+  spawnPlanDescription = '';
+  spawnPlanLoading = signal(false);
+  spawnPlanResult = signal<string | null>(null);
+
+  openSpawnPlan(candidate: HarvestCandidate, event: Event) {
+    event.stopPropagation();
+    this.spawnPlanCandidate.set(candidate);
+    // Pre-populate from current selection
+    const sysId = this.dataService.selectedSystemId();
+    this.spawnPlanSystemId = candidate.system_id || sysId || '';
+    this.spawnPlanSubsystemId = candidate.subsystem_id || this.dataService.selectedSubsystemId() || '';
+    this.spawnPlanFeatureId = candidate.feature_id || this.dataService.selectedFeatureId() || '';
+    this.spawnPlanPlanRef = '';
+    this.spawnPlanTitle = candidate.title || '';
+    this.spawnPlanDescription = candidate.intent_description || '';
+    this.spawnPlanResult.set(null);
+    this.showSpawnPlanModal.set(true);
+  }
+
+  closeSpawnPlan() {
+    this.showSpawnPlanModal.set(false);
+    this.spawnPlanCandidate.set(null);
+    this.spawnPlanResult.set(null);
+  }
+
+  executeSpawnPlan() {
+    const candidate = this.spawnPlanCandidate();
+    if (!candidate || !this.spawnPlanSystemId) return;
+
+    this.spawnPlanLoading.set(true);
+    this.dataService.spawnPlanFromCandidate(candidate.id, {
+      systemId: this.spawnPlanSystemId,
+      subsystemId: this.spawnPlanSubsystemId || undefined,
+      featureId: this.spawnPlanFeatureId || undefined,
+      planRef: this.spawnPlanPlanRef || undefined,
+      requirementTitle: this.spawnPlanTitle || undefined,
+      requirementDescription: this.spawnPlanDescription || undefined,
+    }).then(result => {
+      this.spawnPlanLoading.set(false);
+      if (result) {
+        this.spawnPlanResult.set(`Plan spawned! Requirement "${result.requirement.title}" created${result.crossReference ? ' with cross-reference' : ''}.`);
+        // Refresh candidates
+        const ctx = this.candidateContext();
+        if (ctx) {
+          this.candidatesLoading.set(true);
+          if (ctx.level === 'System') {
+            this.dataService.getSystemHarvestCandidates(ctx.id).then(r => {
+              this.harvestCandidates.set(r.candidates);
+              this.candidatesCount.set(r.count);
+              this.candidatesLoading.set(false);
+            });
+          }
+        }
+        // Refresh requirements from server
+        this.dataService.refreshRequirements();
+      } else {
+        this.spawnPlanResult.set('Failed to spawn plan.');
+      }
+    }).catch(() => {
+      this.spawnPlanLoading.set(false);
+      this.spawnPlanResult.set('Error spawning plan.');
+    });
+  }
 }

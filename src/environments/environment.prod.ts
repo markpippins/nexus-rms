@@ -1,6 +1,7 @@
 
 export const environment = {
   production: true,
+  apiUrl: 'http://localhost:3101/api',
   API_KEY: (() => {
     try {
       // @ts-ignore

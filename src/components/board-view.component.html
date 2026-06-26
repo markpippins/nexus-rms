@@ -1,11 +1,11 @@
 
-<div class="flex-1 overflow-x-auto p-6 h-full">
-  <div class="flex gap-6 h-full min-w-[1000px]">
+<div class="flex-1 p-6 h-full">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 h-full">
     
     <!-- Columns -->
     @for (status of columns; track status) {
       <div 
-        class="flex-1 flex flex-col bg-gray-100 dark:bg-gray-800/50 rounded-xl max-w-xs transition-colors"
+        class="flex flex-col bg-gray-100 dark:bg-gray-800/50 rounded-xl min-w-0 transition-colors"
         (dragover)="onDragOver($event)"
         (drop)="onDrop($event, status)"
       >

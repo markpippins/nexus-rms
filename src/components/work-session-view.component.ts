@@ -81,10 +81,10 @@ export class WorkSessionViewComponent {
 
   getTypeClass(type: string) {
     switch(type) {
-        case 'System': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
-        case 'Subsystem': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-        case 'Feature': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-        case 'Requirement': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        case 'system': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+        case 'subsystem': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        case 'feature': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        case 'requirement': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
         default: return 'bg-gray-100 text-gray-800';
     }
   }

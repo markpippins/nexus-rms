@@ -1,0 +1,63 @@
+<div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+  @if (loading()) {
+    <div class="flex-1 flex items-center justify-center">
+      <div class="flex flex-col items-center gap-3">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Loading file...</p>
+      </div>
+    </div>
+  } @else if (selectedFile()) {
+    <!-- Header -->
+    <div class="flex-shrink-0 px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <div class="min-w-0">
+          <h1 class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{{ displayName }}</h1>
+          <p class="text-[10px] text-gray-400 dark:text-gray-500 truncate">{{ displayPath }}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="text-[10px] text-gray-400 dark:text-gray-500">
+          {{ selectedFile()?.sizeBytes | number }} bytes
+        </span>
+        <button 
+          (click)="regenerate()"
+          [disabled]="loading()"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm"
+          title="Re-read this file from disk"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Regenerate
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto">
+      <div class="max-w-4xl mx-auto px-8 py-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+          <div [innerHTML]="renderMarkdown(selectedFile()?.content || '')"></div>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <!-- Empty state -->
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="mt-3 text-sm text-gray-400 dark:text-gray-500">Select a file from the tree to view its contents</p>
+        <p class="mt-1 text-xs text-gray-300 dark:text-gray-600">
+          @if (dataService.auditFiles().length === 0) {
+            Click the sync button in the sidebar to scan audit files from disk
+          }
+        </p>
+      </div>
+    </div>
+  }
+</div>

@@ -17,7 +17,7 @@
                     <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
-                                <span [class]="'px-2 py-0.5 rounded text-xs font-semibold ' + getTypeClass(session.parentType)">
+                                <span [class]="'px-2 py-0.5 rounded text-xs font-semibold capitalize ' + getTypeClass(session.parentType)">
                                     {{ session.parentType }}
                                 </span>
                                 <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ session.updatedAt | date:'medium' }}</span>

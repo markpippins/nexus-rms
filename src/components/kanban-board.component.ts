@@ -1,18 +1,20 @@
 
-import { Component, inject, computed, signal, effect } from '@angular/core';
+import { Component, inject, computed, signal, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { AiService } from '../services/ai.service';
-import { Requirement, Status, AI_PLATFORMS, FolderCategory } from '../models/data.models';
+import { Requirement, Status, AI_PLATFORMS, FolderCategory, HarvestCandidate } from '../models/data.models';
 import { FormsModule } from '@angular/forms';
 import { BoardViewComponent } from './board-view.component';
 import { TableViewComponent } from './table-view.component';
 import { WorkSessionViewComponent } from './work-session-view.component';
+import { SystemInfoComponent } from './system-info.component';
+import { GraphViewComponent } from './graph-view.component';
 
 @Component({
   selector: 'app-kanban-board',
   standalone: true,
-  imports: [CommonModule, FormsModule, BoardViewComponent, TableViewComponent, WorkSessionViewComponent],
+  imports: [CommonModule, FormsModule, BoardViewComponent, TableViewComponent, WorkSessionViewComponent, SystemInfoComponent, GraphViewComponent],
   templateUrl: './kanban-board.component.html'
 })
 export class KanbanBoardComponent {
@@ -46,7 +48,7 @@ export class KanbanBoardComponent {
   exportPlatform = signal('Cursor');
   exportModel = signal('');
   exportParentId = signal('');
-  exportParentType = signal<'System' | 'Subsystem' | 'Feature' | 'Requirement'>('System');
+  exportParentType = signal<'system' | 'subsystem' | 'feature' | 'requirement'>('system');
   exportParentName = signal('');
   includeInProgress = signal(false);
   pendingExportReqIds = signal<string[]>([]); // Store IDs to update status later
@@ -62,8 +64,225 @@ export class KanbanBoardComponent {
   editableReadme = signal('');
   importMode: 'append' | 'replace' = 'append';
 
+  // Docs Resizing State
+  docsTopHeight = signal(400);
+  isDocsResizing = signal(false);
+
+  // ── Backlog Summary (Backlog #1) ───────────────────────────────────
+  backlogCounts = computed(() => {
+    const reqs = this.dataService.requirements();
+    return {
+      backlog: reqs.filter(r => r.status === 'Backlog').length,
+      todo: reqs.filter(r => r.status === 'ToDo').length,
+      inProgress: reqs.filter(r => r.status === 'InProgress').length,
+      done: reqs.filter(r => r.status === 'Done').length,
+      total: reqs.length,
+    };
+  });
+
+  // ── Harvest Candidates (shown in Docs view when hierarchy selected) ──
+  harvestCandidates = signal<HarvestCandidate[]>([]);
+  candidatesLoading = signal(false);
+  candidatesCount = signal(0);
+  private candidatesRequestId = 0; // race-condition guard
+
+  // ── Harvest Candidates Inline Edit State ──
+  editingCandidateId = signal<string | null>(null);
+  editCandidateSysId = signal<string>('');
+  editCandidateSubId = signal<string>('');
+  editCandidateFeatId = signal<string>('');
+
+  // ── Spawn Plan Flow (triggered from Docs view candidate cards) ──
+  showSpawnPlanModal = signal(false);
+  spawnPlanCandidate = signal<HarvestCandidate | null>(null);
+  spawnPlanSystemId = '';
+  spawnPlanSubsystemId = '';
+  spawnPlanFeatureId = '';
+  spawnPlanPlanRef = '';
+  spawnPlanTitle = '';
+  spawnPlanDescription = '';
+  spawnPlanLoading = signal(false);
+  spawnPlanResult = signal<string | null>(null);
+
+  // Fetch harvest candidates when hierarchy selection changes
+  private candidatesEffect = effect(() => {
+    const featId = this.dataService.selectedFeatureId();
+    const subId = this.dataService.selectedSubsystemId();
+    const sysId = this.dataService.selectedSystemId();
+
+    if (!featId && !subId && !sysId) {
+      this.harvestCandidates.set([]);
+      this.candidatesCount.set(0);
+      return;
+    }
+
+    const requestId = ++this.candidatesRequestId;
+    this.candidatesLoading.set(true);
+
+    let promise: Promise<{ candidates: HarvestCandidate[]; count: number }>;
+    if (featId) {
+      promise = this.dataService.getFeatureHarvestCandidates(featId).then(r => ({ candidates: r.candidates, count: r.count }));
+    } else if (subId) {
+      promise = this.dataService.getSubsystemHarvestCandidates(subId).then(r => ({ candidates: r.candidates, count: r.count }));
+    } else {
+      promise = this.dataService.getSystemHarvestCandidates(sysId!).then(r => ({ candidates: r.candidates, count: r.count }));
+    }
+
+    promise.then(({ candidates, count }) => {
+      if (requestId !== this.candidatesRequestId) return;
+      this.harvestCandidates.set(candidates);
+      this.candidatesCount.set(count);
+      this.candidatesLoading.set(false);
+    }).catch(() => {
+      if (requestId !== this.candidatesRequestId) return;
+      this.candidatesLoading.set(false);
+    });
+  });
+
+  // ── Docs Resize Handlers ──
+  startDocsResize(event: MouseEvent) {
+    event.preventDefault();
+    this.isDocsResizing.set(true);
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onDocsMouseMove(event: MouseEvent) {
+    if (this.isDocsResizing()) {
+      event.preventDefault();
+      this.docsTopHeight.update(h => Math.max(100, h + event.movementY));
+    }
+  }
+
+  @HostListener('document:mouseup')
+  onDocsMouseUp() {
+    if (this.isDocsResizing()) {
+      this.isDocsResizing.set(false);
+    }
+  }
+
+  // ── Candidate Actions ──
+  selectCandidate(candidate: HarvestCandidate) {
+    const textToAppend = `\n\n### ${candidate.title}\n${candidate.intent_description || ''}\n`.trimStart();
+    const current = this.editableReadme() || '';
+    this.editableReadme.set(current ? `${current}\n\n${textToAppend}` : textToAppend);
+  }
+
+  startEditingCandidate(c: HarvestCandidate, event: MouseEvent) {
+    event.stopPropagation();
+    this.editingCandidateId.set(c.id);
+    this.editCandidateSysId.set(c.system_id || '');
+    this.editCandidateSubId.set(c.subsystem_id || '');
+    this.editCandidateFeatId.set(c.feature_id || '');
+  }
+
+  cancelCandidateEdit(event?: MouseEvent) {
+    if (event) event.stopPropagation();
+    this.editingCandidateId.set(null);
+  }
+
+  async saveCandidateEdit(id: string, event: MouseEvent) {
+    event.stopPropagation();
+    await this.dataService.updateHarvestCandidate(id, {
+      system_id: this.editCandidateSysId() || null,
+      subsystem_id: this.editCandidateSubId() || null,
+      feature_id: this.editCandidateFeatId() || null
+    });
+    this.editingCandidateId.set(null);
+    // Refresh candidates
+    const featId = this.dataService.selectedFeatureId();
+    const subId = this.dataService.selectedSubsystemId();
+    const sysId = this.dataService.selectedSystemId();
+    if (featId) {
+      this.dataService.getFeatureHarvestCandidates(featId).then(r => { this.harvestCandidates.set(r.candidates); this.candidatesCount.set(r.count); });
+    } else if (subId) {
+      this.dataService.getSubsystemHarvestCandidates(subId).then(r => { this.harvestCandidates.set(r.candidates); this.candidatesCount.set(r.count); });
+    } else if (sysId) {
+      this.dataService.getSystemHarvestCandidates(sysId).then(r => { this.harvestCandidates.set(r.candidates); this.candidatesCount.set(r.count); });
+    }
+  }
+
+  getEditCandidateSubsystems() {
+    const sysId = this.editCandidateSysId();
+    if (!sysId) return [];
+    return this.dataService.systems().find(s => s.id === sysId)?.subsystems || [];
+  }
+
+  getEditCandidateFeatures() {
+    const sysId = this.editCandidateSysId();
+    const subId = this.editCandidateSubId();
+    if (!sysId || !subId) return [];
+    return this.dataService.systems().find(s => s.id === sysId)?.subsystems.find(s => s.id === subId)?.features || [];
+  }
+
+  // ── Spawn Plan Handlers ──
+  openSpawnPlan(candidate: HarvestCandidate, event?: MouseEvent) {
+    if (event) event.stopPropagation();
+    this.spawnPlanCandidate.set(candidate);
+    const sysId = this.dataService.selectedSystemId();
+    this.spawnPlanSystemId = candidate.system_id || sysId || '';
+    this.spawnPlanSubsystemId = candidate.subsystem_id || this.dataService.selectedSubsystemId() || '';
+    this.spawnPlanFeatureId = candidate.feature_id || this.dataService.selectedFeatureId() || '';
+    this.spawnPlanPlanRef = '';
+    this.spawnPlanTitle = candidate.title || '';
+    this.spawnPlanDescription = candidate.intent_description || '';
+    this.spawnPlanResult.set(null);
+    this.showSpawnPlanModal.set(true);
+  }
+
+  closeSpawnPlan() {
+    this.showSpawnPlanModal.set(false);
+    this.spawnPlanCandidate.set(null);
+    this.spawnPlanResult.set(null);
+  }
+
+  executeSpawnPlan() {
+    const candidate = this.spawnPlanCandidate();
+    if (!candidate || !this.spawnPlanSystemId) return;
+
+    this.spawnPlanLoading.set(true);
+    this.dataService.spawnPlanFromCandidate(candidate.id, {
+      systemId: this.spawnPlanSystemId,
+      subsystemId: this.spawnPlanSubsystemId || undefined,
+      featureId: this.spawnPlanFeatureId || undefined,
+      planRef: this.spawnPlanPlanRef || undefined,
+      requirementTitle: this.spawnPlanTitle || undefined,
+      requirementDescription: this.spawnPlanDescription || undefined,
+    }).then(result => {
+      this.spawnPlanLoading.set(false);
+      if (result) {
+        this.spawnPlanResult.set(`Plan spawned! Requirement "${result.requirement.title}" created${result.crossReference ? ' with cross-reference' : ''}.`);
+        // Refresh candidates
+        const featId = this.dataService.selectedFeatureId();
+        const subId = this.dataService.selectedSubsystemId();
+        const sysId = this.dataService.selectedSystemId();
+        if (featId) {
+          this.dataService.getFeatureHarvestCandidates(featId).then(r => {
+            this.harvestCandidates.set(r.candidates);
+            this.candidatesCount.set(r.count);
+          });
+        } else if (subId) {
+          this.dataService.getSubsystemHarvestCandidates(subId).then(r => {
+            this.harvestCandidates.set(r.candidates);
+            this.candidatesCount.set(r.count);
+          });
+        } else if (sysId) {
+          this.dataService.getSystemHarvestCandidates(sysId).then(r => {
+            this.harvestCandidates.set(r.candidates);
+            this.candidatesCount.set(r.count);
+          });
+        }
+        this.dataService.refreshRequirements();
+      } else {
+        this.spawnPlanResult.set('Failed to spawn plan.');
+      }
+    }).catch(() => {
+      this.spawnPlanLoading.set(false);
+      this.spawnPlanResult.set('Error spawning plan.');
+    });
+  }
+
   // System Folders State (Sorted)
-  readonly folderCategories: FolderCategory[] = ['Library', 'Service', 'UI'];
+  readonly folderCategories: FolderCategory[] = ['Library', 'Service', 'UI', 'Documentation', 'Config', 'data', 'api'];
   newFolderName = signal('');
   newFolderCategory = signal<FolderCategory>('Library');
   newFolderNote = signal('');
@@ -170,6 +389,10 @@ export class KanbanBoardComponent {
           case 'UI': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300';
           case 'Service': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
           case 'Library': return 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
+          case 'Documentation': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300';
+          case 'Config': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
+          case 'data': return 'bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300';
+          case 'api': return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
           default: return 'bg-gray-100 text-gray-800';
       }
   }
@@ -440,7 +663,7 @@ export class KanbanBoardComponent {
       content += `[Generate implementation steps, test cases, or code for: "${singleReq.title}"]\n`;
       
       this.exportParentId.set(singleReq.id);
-      this.exportParentType.set('Requirement');
+      this.exportParentType.set('requirement');
       this.exportParentName.set(singleReq.title);
       this.pendingExportReqIds.set([]); // No status update for single export? Or should we? Assuming no for now based on req.
     } else {
@@ -482,15 +705,15 @@ export class KanbanBoardComponent {
         // Determine parent scope IDs for the session record
         if (feat) {
             this.exportParentId.set(feat.id);
-            this.exportParentType.set('Feature');
+            this.exportParentType.set('feature');
             this.exportParentName.set(feat.name);
         } else if (sub) {
             this.exportParentId.set(sub.id);
-            this.exportParentType.set('Subsystem');
+            this.exportParentType.set('subsystem');
             this.exportParentName.set(sub.name);
         } else if (sys) {
             this.exportParentId.set(sys.id);
-            this.exportParentType.set('System');
+            this.exportParentType.set('system');
             this.exportParentName.set(sys.name);
         }
     }

@@ -58,7 +58,7 @@
           [class.bg-blue-50]="dataService.selectedSystemId() === system.id && !dataService.selectedSubsystemId()"
           [class.dark:bg-blue-900]="dataService.selectedSystemId() === system.id && !dataService.selectedSubsystemId()"
           [class.dark:bg-opacity-30]="dataService.selectedSystemId() === system.id && !dataService.selectedSubsystemId()"
-          (click)="selectSystem(system.id)"
+          (click)="selectSystem(system.id, $event)"
         >
           <div class="w-4 h-4 flex items-center justify-center">
             @if (system.subsystems.length > 0) {
@@ -137,7 +137,7 @@
                   [class.bg-blue-50]="dataService.selectedSubsystemId() === sub.id"
                   [class.dark:bg-blue-900]="dataService.selectedSubsystemId() === sub.id"
                   [class.dark:bg-opacity-30]="dataService.selectedSubsystemId() === sub.id"
-                  (click)="selectSubsystem(system.id, sub.id)"
+                  (click)="selectSubsystem(system.id, sub.id, $event)"
                 >
                   <div class="w-4 h-4 flex items-center justify-center">
                       @if (sub.features.length > 0) {
@@ -219,7 +219,7 @@
                           [class.dark:bg-opacity-50]="dataService.selectedFeatureId() === feat.id"
                           [class.text-blue-700]="dataService.selectedFeatureId() === feat.id"
                           [class.dark:text-blue-300]="dataService.selectedFeatureId() === feat.id"
-                          (click)="selectFeature(system.id, sub.id, feat.id)"
+                          (click)="selectFeature(system.id, sub.id, feat.id, $event)"
                       >
                           <span class="w-1.5 h-1.5 rounded-full" [style.background-color]="sub.color || '#10B981'"></span>
                           @if (editingItem()?.id === feat.id) {
@@ -261,6 +261,77 @@
       </div>
     }
   </div>
+
+  <!-- Harvest Candidates Panel -->
+  @if (candidateContext()) {
+    <div class="border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+      <button
+        (click)="toggleCandidatesPanel()"
+        class="w-full px-3 py-2 flex items-center justify-between text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+      >
+        <span class="flex items-center gap-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          Harvest Candidates
+        </span>
+        <span class="flex items-center gap-1.5">
+          @if (candidatesLoading()) {
+            <svg class="animate-spin h-3 w-3 text-gray-400" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          }
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{{ candidatesCount() }}</span>
+          <svg class="w-3 h-3 transition-transform" [class.rotate-180]="showCandidatesPanel()" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </span>
+      </button>
+
+      @if (showCandidatesPanel()) {
+        <div class="max-h-64 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
+          @if (harvestCandidates().length === 0 && !candidatesLoading()) {
+            <div class="p-4 text-center">
+              <p class="text-xs text-gray-400 dark:text-gray-500">No harvest candidates linked to this {{ candidateContext()?.label }}.</p>
+            </div>
+          }
+          @for (candidate of harvestCandidates(); track candidate.id) {
+            <div
+              class="px-3 py-2 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer group transition-colors"
+              [class.bg-blue-50]="dataService.selectedHarvestCandidateId() === candidate.id"
+              [class.dark:bg-blue-900/20]="dataService.selectedHarvestCandidateId() === candidate.id"
+              (click)="viewCandidateDetail(candidate)"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{{ candidate.title }}</p>
+                  @if (candidate.intent_description) {
+                    <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2">{{ candidate.intent_description }}</p>
+                  }
+                  <div class="flex items-center gap-2 mt-1">
+                    <span
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                      [class]="candidate.status === 'linked'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : candidate.status === 'unlinked'
+                        ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'"
+                    >
+                      {{ candidate.status || 'unlinked' }}
+                    </span>
+                    @if (candidate.harvest_source) {
+                      <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono truncate">{{ candidate.harvest_source }}</span>
+                    }
+                  </div>
+                </div>
+                <button
+                  (click)="openSpawnPlan(candidate, $event)"
+                  class="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 rounded text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all"
+                  title="Spawn plan from this candidate"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 </div>
 
 <!-- Move/Reparent Modal -->
@@ -341,6 +412,130 @@
          >
            Move
          </button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- Spawn Plan Modal -->
+@if (showSpawnPlanModal()) {
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transition-colors">
+      
+      <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">Spawn Plan</h3>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">From: {{ spawnPlanCandidate()?.title }}</p>
+      </div>
+
+      <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
+        <!-- System (required) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">System <span class="text-red-500">*</span></label>
+          <select
+            [(ngModel)]="spawnPlanSystemId"
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm"
+          >
+            <option value="">Select a system...</option>
+            @for(sys of dataService.sortedSystems(); track sys.id) {
+              <option [value]="sys.id">{{ sys.name }}</option>
+            }
+          </select>
+        </div>
+
+        <!-- Subsystem (optional) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Subsystem</label>
+          <select
+            [(ngModel)]="spawnPlanSubsystemId"
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm"
+          >
+            <option value="">None (system-level)</option>
+            @for(sys of dataService.sortedSystems(); track sys.id) {
+              @for(sub of sys.subsystems; track sub.id) {
+                <option [value]="sub.id">{{ sys.name }} / {{ sub.name }}</option>
+              }
+            }
+          </select>
+        </div>
+
+        <!-- Feature (optional) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Feature</label>
+          <select
+            [(ngModel)]="spawnPlanFeatureId"
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm"
+          >
+            <option value="">None (subsystem-level)</option>
+            @for(sys of dataService.sortedSystems(); track sys.id) {
+              @for(sub of sys.subsystems; track sub.id) {
+                @for(feat of sub.features; track feat.id) {
+                  <option [value]="feat.id">{{ sys.name }} / {{ sub.name }} / {{ feat.name }}</option>
+                }
+              }
+            }
+          </select>
+        </div>
+
+        <!-- Plan Reference (optional) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Plan Reference</label>
+          <input
+            type="text"
+            [(ngModel)]="spawnPlanPlanRef"
+            placeholder="e.g. CON-123 or plan UUID"
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm"
+          >
+          <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Creates a cross-reference to a conduit plan</p>
+        </div>
+
+        <!-- Requirement Title -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Requirement Title</label>
+          <input
+            type="text"
+            [(ngModel)]="spawnPlanTitle"
+            placeholder="Requirement title"
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm"
+          >
+        </div>
+
+        <!-- Requirement Description -->
+        <div>
+          <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+          <textarea
+            [(ngModel)]="spawnPlanDescription"
+            rows="3"
+            placeholder="Derived from candidate intent..."
+            class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500 p-2 border text-sm resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Result -->
+        @if (spawnPlanResult()) {
+          <div class="p-2 rounded-lg text-xs" [class]="spawnPlanResult()?.includes('Failed') || spawnPlanResult()?.includes('Error')
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+            : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'">
+            {{ spawnPlanResult() }}
+          </div>
+        }
+      </div>
+
+      <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
+        <button (click)="closeSpawnPlan()" class="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
+        <button
+          (click)="executeSpawnPlan()"
+          [disabled]="!spawnPlanSystemId || spawnPlanLoading()"
+          class="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center gap-1.5"
+        >
+          @if (spawnPlanLoading()) {
+            <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          }
+          Spawn Plan
+        </button>
       </div>
 
     </div>
