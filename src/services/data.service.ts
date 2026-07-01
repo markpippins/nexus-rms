@@ -50,7 +50,7 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly darkMode = signal<boolean>(false);
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis'>('board');
 
   // ── Selection State ────────────────────────────────────────────
   readonly selectedSystemId = signal<string | null>(null);

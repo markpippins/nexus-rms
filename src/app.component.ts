@@ -6,13 +6,14 @@ import { KanbanBoardComponent } from './components/kanban-board.component';
 import { AuditTreeComponent } from './components/audit-tree.component';
 import { AuditViewerComponent } from './components/audit-viewer.component';
 import { HarvestViewComponent } from './components/harvest-view.component';
+import { AnalysisViewComponent } from './components/analysis-view.component';
 import { DataService } from './services/data.service';
 import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent],
+  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -156,6 +157,7 @@ export class AppComponent {
       sessions: 'Work Sessions',
       harvests: 'Harvests',
       audit: 'Audit Files',
+      analysis: 'Analysis',
     };
     return labels[this.dataService.viewMode()] || this.dataService.viewMode();
   });
@@ -294,7 +296,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();
