@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { HarvestCandidate } from '../models/data.models';
 
+/** Union of candidate statuses that can be set via the analysis view. */
+type CandidateStatus = 'useful' | 'rejected';
+
 interface TranscriptUnit {
   turn_index: number;
   heading: string;
@@ -156,5 +159,74 @@ export class AnalysisViewComponent {
   scrollTabs(direction: 'left' | 'right') {
     const amount = direction === 'left' ? -200 : 200;
     this.tabScrollLeft.update(v => Math.max(0, v + amount));
+  }
+
+  /** ID of the candidate currently being promoted/rejected (for spinner). */
+  togglingCandidateId = signal<string | null>(null);
+
+  /** Mark a candidate as useful or rejected from the candidates list. */
+  async toggleCandidateStatus(candidate: HarvestCandidate, status: CandidateStatus) {
+    this.togglingCandidateId.set(candidate.id);
+    try {
+      if (status === 'useful') {
+        await this.dataService.promoteHarvestCandidate(candidate.id);
+      } else {
+        await this.dataService.rejectHarvestCandidate(candidate.id);
+      }
+      // Update local state in the active tab's transcriptCandidates
+      this.tabs.update(list => list.map(t => ({
+        ...t,
+        transcriptCandidates: t.transcriptCandidates.map(c =>
+          c.id === candidate.id ? { ...c, status } : c
+        ),
+      })));
+      // If rejected, also remove from the "useful" filter so it won't appear on reload
+      // (We don't reload — let the user see the status change inline.)
+    } catch (err: any) {
+      console.error('Failed to update candidate status:', err);
+    } finally {
+      this.togglingCandidateId.set(null);
+    }
+  }
+
+  /** Whether a candidate is currently being toggled. */
+  isToggling(id: string): boolean {
+    return this.togglingCandidateId() === id;
+  }
+
+  // -- Transform to Requirement --
+  transformingId = signal<string | null>(null);
+
+  async transformToRequirement(candidate: HarvestCandidate) {
+    if (!candidate.system_id) return;
+    this.transformingId.set(candidate.id);
+    try {
+      await this.dataService.addRequirement({
+        title: candidate.title || 'Untitled Candidate',
+        description: candidate.intent_description || '',
+        status: 'Backlog',
+        priority: 'Medium',
+        reqType: 'Task',
+        candidateId: candidate.id,
+        systemId: candidate.system_id,
+        subsystemId: candidate.subsystem_id || undefined,
+        featureId: candidate.feature_id || undefined,
+      });
+      // Update local state: mark as promoted
+      this.tabs.update(list => list.map(t => ({
+        ...t,
+        transcriptCandidates: t.transcriptCandidates.map(c =>
+          c.id === candidate.id ? { ...c, status: 'promoted' } : c
+        ),
+      })));
+    } catch (err: any) {
+      console.error('Failed to transform candidate:', err);
+    } finally {
+      this.transformingId.set(null);
+    }
+  }
+
+  isTransforming(id: string): boolean {
+    return this.transformingId() === id;
   }
 }

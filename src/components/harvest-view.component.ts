@@ -66,6 +66,9 @@ export class HarvestViewComponent {
   promotingToPlan = signal(false);
   promoteToPlanResult = signal<string | null>(null);
 
+  // Transform to Requirement state
+  transformingId = signal<string | null>(null);
+
   constructor() {
     this.dataService.fetchHarvests();
   }
@@ -440,6 +443,33 @@ export class HarvestViewComponent {
 
   get usefulCandidates(): HarvestCandidate[] {
     return this.selectedHarvestCandidates().filter(c => c.status === 'useful');
+  }
+
+  async transformToRequirement(candidate: HarvestCandidate) {
+    if (!candidate.system_id) return;
+    this.transformingId.set(candidate.id);
+    try {
+      await this.dataService.addRequirement({
+        title: candidate.title || 'Untitled Candidate',
+        description: candidate.intent_description || '',
+        status: 'Backlog',
+        priority: 'Medium',
+        reqType: 'Task',
+        candidateId: candidate.id,
+        systemId: candidate.system_id,
+        subsystemId: candidate.subsystem_id || undefined,
+        featureId: candidate.feature_id || undefined,
+      });
+      // Mark as promoted locally
+      const updated = this.selectedHarvestCandidates().map(c =>
+        c.id === candidate.id ? { ...c, status: 'promoted' } : c
+      );
+      this.selectedHarvestCandidates.set(updated);
+    } catch (err: any) {
+      console.error('Failed to transform candidate:', err);
+    } finally {
+      this.transformingId.set(null);
+    }
   }
 
   async promoteToPlan() {

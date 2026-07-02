@@ -138,8 +138,8 @@
       </div>
     }
 
-    <!-- View Area -->
-    <div class="flex-1 overflow-hidden relative">
+    <!-- View Area (flex column so children can use flex-1 for proper scroll containment) -->
+    <div class="flex-1 overflow-hidden relative flex flex-col min-h-0">
       @if (dataService.viewMode() === 'graph') {
          <app-graph-view></app-graph-view>
       } @else if (dataService.viewMode() === 'board') {
@@ -481,7 +481,86 @@ This content will be used as context for the AI when generating requirements."
                   <option value="High">High</option>
                </select>
             </div>
-         </div>
+
+            <!-- Type -->
+            <div>
+               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+               <select [ngModel]="newReqType()" (ngModelChange)="newReqType.set($event)" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                  <option [ngValue]="null">None</option>
+                  <option value="Epic">Epic</option>
+                  <option value="Story">Story</option>
+                  <option value="Task">Task</option>
+                  <option value="Bug">Bug</option>
+               </select>
+            </div>
+
+            <!-- Parent Requirement -->
+            <div>
+               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Parent</label>
+               <select [ngModel]="newReqParentId()" (ngModelChange)="newReqParentId.set($event)" class="w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                  <option [ngValue]="null">None (top-level)</option>
+                  @for(req of availableParents(); track req.id) {
+                     <option [value]="req.id">{{ req.title }}</option>
+                  }
+               </select>
+               @if (availableParents().length === 0) {
+                  <p class="text-[10px] text-gray-400 mt-1">No other requirements in this feature</p>
+               }
+            </div>
+
+            <!-- Candidate Link -->
+            @if (editReqCandidateId()) {
+               <div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                  <span>Spawned from harvest candidate</span>
+               </div>
+            }
+          </div>
+
+          <!-- Acceptance Criteria -->
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Acceptance Criteria</label>
+             
+             <!-- Existing criteria -->
+             @for (criterion of newAcceptanceCriteria(); track $index; let i = $index) {
+                <div class="flex items-center gap-2 mb-2 group">
+                   <input
+                      type="checkbox"
+                      [checked]="criterion.done"
+                      (change)="toggleCriterion(i)"
+                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                   >
+                   <span class="flex-1 text-sm text-gray-800 dark:text-gray-200" [class.line-through]="criterion.done" [class.text-gray-400]="criterion.done">
+                      {{ criterion.criterion }}
+                   </span>
+                   <button
+                      (click)="removeCriterion(i)"
+                      class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1"
+                      title="Remove criterion"
+                   >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                   </button>
+                </div>
+             }
+
+             <!-- Add new criterion -->
+             <div class="flex items-center gap-2 mt-1">
+                <input
+                   type="text"
+                   [(ngModel)]="newCriterionText"
+                   (keydown.enter)="addCriterion()"
+                   placeholder="Add criterion..."
+                   class="flex-1 text-sm bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-1.5 border"
+                >
+                <button
+                   (click)="addCriterion()"
+                   [disabled]="!newCriterionText"
+                   class="px-3 py-1.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/70 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                   Add
+                </button>
+             </div>
+          </div>
       </div>
       
       <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
@@ -703,7 +782,6 @@ This content will be used as context for the AI when generating requirements."
   </div>
 }
 
-<!-- Export/Work Session Modal -->
 @if (showExportModal()) {
   <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col h-[80vh] transition-colors">

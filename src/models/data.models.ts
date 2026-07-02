@@ -38,6 +38,13 @@ export interface Feature {
   subsystemId: string; // Parent reference
 }
 
+export type ReqType = 'Epic' | 'Story' | 'Task' | 'Bug';
+
+export interface AcceptanceCriterion {
+  criterion: string;
+  done: boolean;
+}
+
 export interface Requirement {
   id: string;
   title: string;
@@ -50,6 +57,10 @@ export interface Requirement {
   startDate?: string;
   completionDate?: string;
   createdAt: number;
+  parentId?: string | null;
+  reqType?: ReqType | null;
+  acceptanceCriteria?: AcceptanceCriterion[] | null;
+  candidateId?: string | null;
 }
 
 export interface WorkSession {
@@ -216,6 +227,21 @@ export interface SpawnPlanResponse {
   candidate: HarvestCandidate;
   requirement: Requirement;
   crossReference: any | null;
+}
+
+// ── Requirement Dependencies ────────────────────────────────
+
+export interface RequirementDependency {
+  id: string;
+  relType: 'req:blocks' | 'req:depends_on';
+  sourceType: string;
+  sourceId: string;
+  targetType: string;
+  targetId: string;
+  direction: 'outgoing' | 'incoming';
+  otherId: string;
+  metadata: any;
+  createdAt: number | null;
 }
 
 // ── Block Segmentation Types ────────────────────────────────

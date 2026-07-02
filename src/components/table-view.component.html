@@ -1,5 +1,5 @@
 
-<div class="flex-1 overflow-auto p-6 h-full">
+<div class="flex-1 overflow-auto p-6">
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
       <thead class="bg-gray-50 dark:bg-gray-700/50">
@@ -9,6 +9,7 @@
           
           @let fields = [
             { key: 'title', label: 'Title' },
+            { key: 'reqType', label: 'Type' },
             { key: 'status', label: 'Status' },
             { key: 'priority', label: 'Priority' },
             { key: 'date', label: 'Created' }
@@ -37,8 +38,11 @@
       </thead>
       <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
         @for (req of sortedRequirements(); track req.id) {
+          @let indentClass = getIndentClass(req);
+          @let childCount = hasInlineChildren(req.id);
+          @let depCount = getDepCount(req.id);
           <tr 
-             class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+             [class]="(indentClass || '') + ' hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer'"
              (dblclick)="onEdit(req, $event)"
              title="Double click to edit"
           >
@@ -50,8 +54,22 @@
                 ></div>
             </td>
             <td class="px-6 py-4">
-              <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ req.title }}</div>
-              <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">{{ req.description }}</div>
+              <div class="flex items-center gap-2">
+                @if (req.reqType) {
+                  <span [class]="'text-[10px] px-1.5 py-0.5 rounded border font-semibold flex-shrink-0 ' + getTypeBadgeClass(req.reqType)">{{ getTypeLabel(req.reqType) }}</span>
+                }
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ req.title }}</div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">{{ req.description }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              @if (req.reqType) {
+                <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getTypeBadgeClass(req.reqType)">{{ getTypeLabel(req.reqType) }}</span>
+              } @else {
+                <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+              }
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getStatusClass(req.status)">
@@ -67,6 +85,25 @@
               {{ req.createdAt | date:'mediumDate' }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+               <!-- Expand toggle -->
+               @if (childCount > 0) {
+                 <button 
+                   (click)="toggleExpand(req, $event)" 
+                   class="text-gray-400 hover:text-blue-600 dark:text-gray-500 dark:hover:text-blue-300 mr-2"
+                   [title]="isExpanded(req.id) ? 'Collapse subtasks' : 'Expand ' + childCount + ' subtask(s)'">
+                   @if (isLoadingChildren(req.id)) {
+                     <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                   } @else if (isExpanded(req.id)) {
+                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                   } @else {
+                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                   }
+                 </button>
+               }
+               <!-- Dependency indicator -->
+               @if (depCount > 0) {
+                 <span class="text-xs text-amber-500 dark:text-amber-400 font-medium mr-2" [title]="depCount + ' dependencies'">⛓️{{ depCount }}</span>
+               }
                <button (click)="onCopy(req, $event)" class="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-300 mr-3" title="Copy Prompt">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
@@ -86,9 +123,54 @@
                </button>
             </td>
           </tr>
-        } @empty {
+          <!-- Expanded children rows -->
+          @if (isExpanded(req.id)) {
+            @for (child of getChildren(req.id); track child.id) {
+              <tr class="bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors cursor-pointer" (dblclick)="onEdit(child, $event)" title="Double click to edit">
+                <td class="px-6 py-3 pl-10">
+                  <div class="flex items-center gap-1">
+                    <svg class="w-3 h-3 text-blue-400 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+                    <div 
+                       class="w-2.5 h-2.5 rounded-full shadow-sm ring-1 ring-black/10 dark:ring-white/10" 
+                       [style.background-color]="subsystemColors().get(child.subsystemId) || '#e5e7eb'">
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-3">
+                  <div class="flex items-center gap-2">
+                    @if (child.reqType) {
+                      <span [class]="'text-[10px] px-1.5 py-0.5 rounded border font-semibold flex-shrink-0 ' + getTypeBadgeClass(child.reqType)">{{ getTypeLabel(child.reqType) }}</span>
+                    }
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ child.title }}</div>
+                      <div class="text-xs text-gray-400 dark:text-gray-500 truncate max-w-md">{{ child.description }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-3 whitespace-nowrap">
+                  @if (child.reqType) {
+                    <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getTypeBadgeClass(child.reqType)">{{ getTypeLabel(child.reqType) }}</span>
+                  } @else {
+                    <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                  }
+                </td>
+                <td class="px-6 py-3 whitespace-nowrap">
+                   <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getStatusClass(child.status)">{{ child.status }}</span>
+                </td>
+                <td class="px-6 py-3 whitespace-nowrap">
+                  <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getPriorityClass(child.priority)">{{ child.priority }}</span>
+                </td>
+                <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ child.createdAt | date:'mediumDate' }}
+                </td>
+                <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
+                   <span class="text-[11px] text-gray-400 dark:text-gray-500 italic">subtask</span>
+                </td>
+              </tr>
+            }
+          }
             <tr>
-                <td colspan="6" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                    No requirements found matching your criteria.
                 </td>
             </tr>

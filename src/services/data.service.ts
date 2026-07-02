@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { System, Subsystem, Feature, Requirement, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse } from '../models/data.models';
+import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse } from '../models/data.models';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -904,6 +904,51 @@ export class DataService {
     this.http.delete(`${this.apiUrl}/requirements/${id}`).subscribe({
       error: () => this.requirements.set(previous),
     });
+  }
+
+  // ── Requirement Children & Dependencies ───────────────────────
+
+  async fetchChildren(parentId: string): Promise<Requirement[]> {
+    try {
+      return await firstValueFrom(
+        this.http.get<Requirement[]>(`${this.apiUrl}/requirements/${parentId}/children`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch requirement children:', err);
+      return [];
+    }
+  }
+
+  async fetchDependencies(reqId: string): Promise<RequirementDependency[]> {
+    try {
+      return await firstValueFrom(
+        this.http.get<RequirementDependency[]>(`${this.apiUrl}/requirements/${reqId}/dependencies`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch requirement dependencies:', err);
+      return [];
+    }
+  }
+
+  async addDependency(sourceId: string, targetId: string, relType: 'req:blocks' | 'req:depends_on' = 'req:blocks'): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<any>(`${this.apiUrl}/requirements/${sourceId}/dependencies`, { targetId, relType })
+      );
+    } catch (err) {
+      console.error('Failed to add dependency:', err);
+      return null;
+    }
+  }
+
+  async removeDependency(reqId: string, depId: string): Promise<boolean> {
+    try {
+      await firstValueFrom(this.http.delete(`${this.apiUrl}/requirements/${reqId}/dependencies/${depId}`));
+      return true;
+    } catch (err) {
+      console.error('Failed to remove dependency:', err);
+      return false;
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════

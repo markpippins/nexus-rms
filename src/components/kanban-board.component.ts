@@ -3,7 +3,7 @@ import { Component, inject, computed, signal, effect, HostListener } from '@angu
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { AiService } from '../services/ai.service';
-import { Requirement, Status, AI_PLATFORMS, FolderCategory, HarvestCandidate } from '../models/data.models';
+import { Requirement, Status, ReqType, AcceptanceCriterion, AI_PLATFORMS, FolderCategory, HarvestCandidate } from '../models/data.models';
 import { FormsModule } from '@angular/forms';
 import { BoardViewComponent } from './board-view.component';
 import { TableViewComponent } from './table-view.component';
@@ -15,7 +15,10 @@ import { GraphViewComponent } from './graph-view.component';
   selector: 'app-kanban-board',
   standalone: true,
   imports: [CommonModule, FormsModule, BoardViewComponent, TableViewComponent, WorkSessionViewComponent, SystemInfoComponent, GraphViewComponent],
-  templateUrl: './kanban-board.component.html'
+  templateUrl: './kanban-board.component.html',
+  host: {
+    'style': 'display: block; height: 100%'
+  }
 })
 export class KanbanBoardComponent {
   dataService = inject(DataService);
@@ -34,6 +37,10 @@ export class KanbanBoardComponent {
   newReqTitle = '';
   newReqDesc = '';
   newReqPriority: 'Low' | 'Medium' | 'High' = 'Medium';
+  newReqType = signal<ReqType | null>(null);
+  newReqParentId = signal<string | null>(null);
+  newAcceptanceCriteria = signal<AcceptanceCriterion[]>([]);
+  newCriterionText = '';
   // New modal state for hierarchy selection
   modalSystemId = signal<string | null>(null);
   modalSubsystemId = signal<string | null>(null);
@@ -319,6 +326,23 @@ export class KanbanBoardComponent {
       return subsystem ? subsystem.features : [];
   });
 
+  // Requirements available as parents (from same feature, excluding self)
+  availableParents = computed(() => {
+    const featId = this.modalFeatureId();
+    if (!featId) return [];
+    const editId = this.editingReqId();
+    return this.dataService.requirements().filter(r =>
+      r.featureId === featId && r.id !== editId
+    );
+  });
+
+  // The editing requirement's candidateId (shown as link badge)
+  editReqCandidateId = computed(() => {
+    const editId = this.editingReqId();
+    if (!editId) return null;
+    return this.dataService.requirements().find(r => r.id === editId)?.candidateId || null;
+  });
+
   // Current Documentation based on selection level
   currentReadme = computed(() => {
     if (this.selectedFeature()) return this.selectedFeature()!.readme || '';
@@ -447,11 +471,31 @@ export class KanbanBoardComponent {
     return reqs;
   });
 
-  canAddRequirement = computed(() => !!this.selectedFeature());
+  canAddRequirement = computed(() => !!this.dataService.selectedSystemId());
 
   closeModal() {
     this.showModal.set(false);
     this.isDuplicating.set(false);
+  }
+
+  // ── Acceptance Criteria Helpers ────────────────────────────────
+  addCriterion() {
+    if (!this.newCriterionText.trim()) return;
+    this.newAcceptanceCriteria.update(criteria => [
+      ...criteria,
+      { criterion: this.newCriterionText.trim(), done: false }
+    ]);
+    this.newCriterionText = '';
+  }
+
+  removeCriterion(index: number) {
+    this.newAcceptanceCriteria.update(criteria => criteria.filter((_, i) => i !== index));
+  }
+
+  toggleCriterion(index: number) {
+    this.newAcceptanceCriteria.update(criteria =>
+      criteria.map((c, i) => i === index ? { ...c, done: !c.done } : c)
+    );
   }
 
   openAddModal() {
@@ -460,6 +504,10 @@ export class KanbanBoardComponent {
     this.newReqTitle = '';
     this.newReqDesc = '';
     this.newReqPriority = 'Medium';
+    this.newReqType.set(null);
+    this.newReqParentId.set(null);
+    this.newAcceptanceCriteria.set([]);
+    this.newCriterionText = '';
 
     // Pre-fill with current context
     this.modalSystemId.set(this.dataService.selectedSystemId());
@@ -475,6 +523,10 @@ export class KanbanBoardComponent {
     this.newReqTitle = req.title;
     this.newReqDesc = req.description;
     this.newReqPriority = req.priority;
+    this.newReqType.set(req.reqType || null);
+    this.newReqParentId.set(req.parentId || null);
+    this.newAcceptanceCriteria.set(req.acceptanceCriteria || []);
+    this.newCriterionText = '';
 
     // Pre-fill with requirement's own context
     this.modalSystemId.set(req.systemId);
@@ -491,6 +543,12 @@ export class KanbanBoardComponent {
     this.newReqTitle = `${req.title} (Copy)`;
     this.newReqDesc = req.description;
     this.newReqPriority = req.priority;
+    this.newReqType.set(req.reqType || null);
+    this.newReqParentId.set(null); // Duplicates start fresh
+    this.newAcceptanceCriteria.set(
+      (req.acceptanceCriteria || []).map(c => ({ ...c, done: false }))
+    );
+    this.newCriterionText = '';
 
     this.modalSystemId.set(req.systemId);
     this.modalSubsystemId.set(req.subsystemId);
@@ -589,7 +647,10 @@ export class KanbanBoardComponent {
         priority: this.newReqPriority,
         systemId: sysId,
         subsystemId: subId,
-        featureId: featId
+        featureId: featId,
+        reqType: this.newReqType(),
+        parentId: this.newReqParentId() || undefined,
+        acceptanceCriteria: this.newAcceptanceCriteria().length > 0 ? this.newAcceptanceCriteria() : undefined,
     };
 
     // Edit mode

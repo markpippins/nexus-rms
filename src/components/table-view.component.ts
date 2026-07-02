@@ -3,12 +3,17 @@ import { Component, input, output, signal, computed, inject } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { Requirement, Status } from '../models/data.models';
+import { getTypeBadgeClass, getTypeLabel } from '../utils/requirement-utils';
+import { RequirementHierarchyState } from '../services/requirement-hierarchy.state';
 
 @Component({
   selector: 'app-table-view',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './table-view.component.html'
+  templateUrl: './table-view.component.html',
+  host: {
+    'style': 'display: flex; flex-direction: column; flex: 1; min-height: 0; width: 100%;'
+  }
 })
 export class TableViewComponent {
   dataService = inject(DataService);
@@ -22,6 +27,16 @@ export class TableViewComponent {
 
   subsystemColors = computed(() => this.dataService.subsystemColorMap());
 
+  private hierarchy = new RequirementHierarchyState(this.dataService, this.requirements);
+
+  // Delegates for template access
+  toggleExpand = (req: Requirement, event: Event) => this.hierarchy.toggleExpand(req, event);
+  hasInlineChildren = (parentId: string) => this.hierarchy.hasInlineChildren(parentId);
+  getChildren = (parentId: string) => this.hierarchy.getChildren(parentId);
+  isExpanded = (reqId: string) => this.hierarchy.isExpanded(reqId);
+  isLoadingChildren = (reqId: string) => this.hierarchy.isLoadingChildren(reqId);
+  getDepCount = (reqId: string) => this.hierarchy.getDepCount(reqId);
+
   sortedRequirements = computed(() => {
     const reqs = [...this.requirements()];
     const field = this.sortField();
@@ -34,6 +49,11 @@ export class TableViewComponent {
       if (field === 'date') {
         valA = a.createdAt;
         valB = b.createdAt;
+      }
+      
+      if (field === 'reqType') {
+        valA = a.reqType || '';
+        valB = b.reqType || '';
       }
 
       if (valA < valB) return dir === 'asc' ? -1 : 1;
@@ -89,5 +109,13 @@ export class TableViewComponent {
     event.stopPropagation();
     console.log('Deleting requirement:', id);
     this.dataService.deleteRequirement(id);
+  }
+
+  // Shared type badge helpers
+  getTypeBadgeClass = getTypeBadgeClass;
+  getTypeLabel = getTypeLabel;
+
+  getIndentClass(req: Requirement): string {
+    return req.parentId ? 'bg-gray-50/50 dark:bg-gray-700/30' : '';
   }
 }
