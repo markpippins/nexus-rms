@@ -1125,7 +1125,7 @@ export class GraphViewComponent implements OnDestroy {
   }
 
   private isDark(): boolean {
-    return this.dataService.darkMode();
+    return this.dataService.theme() !== 'light';
   }
 
   // ── Mouse / Interaction ─────────────────────────────────────────

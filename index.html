@@ -33,6 +33,28 @@
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     .dark ::-webkit-scrollbar-thumb { background: #475569; }
     .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* True-dark mode overrides — deeper/blacker than steel (gray-900).
+       Scoped to html.dark:not(.steel) so steel mode keeps its Tailwind gray-900 look. */
+    html.dark:not(.steel) body {
+      background-color: #09090b;
+      color: #f4f4f5;
+    }
+    html.dark:not(.steel) .dark\:bg-gray-900,
+    html.dark:not(.steel) .dark\:bg-gray-800,
+    html.dark:not(.steel) .dark\:bg-gray-800\/50,
+    html.dark:not(.steel) .dark\:bg-gray-700 {
+      background-color: #18181b;
+    }
+    html.dark:not(.steel) .dark\:bg-gray-700\/50 { background-color: rgba(24,24,27,0.5); }
+    html.dark:not(.steel) .dark\:bg-gray-700\/30 { background-color: rgba(24,24,27,0.3); }
+    html.dark:not(.steel) .dark\:bg-gray-950 { background-color: #09090b; }
+    html.dark:not(.steel) .dark\:text-gray-100 { color: #f4f4f5; }
+    html.dark:not(.steel) .dark\:text-gray-300 { color: #d4d4d8; }
+    html.dark:not(.steel) .dark\:text-gray-400 { color: #a1a1aa; }
+    html.dark:not(.steel) .dark\:text-gray-500 { color: #71717a; }
+    html.dark:not(.steel) .dark\:border-gray-700 { border-color: #27272a; }
+    html.dark:not(.steel) .dark\:border-gray-600 { border-color: #3f3f46; }
   </style>
 <script type="importmap">
 {

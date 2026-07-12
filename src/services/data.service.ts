@@ -50,7 +50,7 @@ export class DataService {
   readonly workspaces = signal<WorkspaceEntry[]>([]);
 
   // ── UI State ───────────────────────────────────────────────────
-  readonly darkMode = signal<boolean>(false);
+  readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
   readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis'>('board');
 
   // ── Selection State ────────────────────────────────────────────
@@ -240,8 +240,11 @@ export class DataService {
       const prefs = await firstValueFrom(
         this.http.get<Record<string, any>>(`${this.apiUrl}/preferences`)
       );
-      if (prefs && typeof prefs.darkMode === 'boolean') {
-        this.darkMode.set(prefs.darkMode);
+      if (prefs && typeof prefs.theme === 'string') {
+        const t = prefs.theme;
+        if (t === 'steel' || t === 'light' || t === 'dark') {
+          this.theme.set(t);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch preferences:', err);
@@ -365,16 +368,19 @@ export class DataService {
 
   // ── Theme ───────────────────────────────────────────────────────
   private initTheme() {
-    // Initialize from system preference (overridden by API fetch in bootstrap)
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      this.darkMode.set(true);
-    }
+    // Default to steel — no system preference override
     // Apply theme to DOM + persist to API
     effect(() => {
-      const isDark = this.darkMode();
-      document.documentElement.classList.toggle('dark', isDark);
+      const t = this.theme();
+      const html = document.documentElement;
+      html.classList.remove('steel', 'light', 'dark');
+      html.classList.add(t);
+      // Tailwind CDN darkMode:'class' requires .dark for dark variants
+      if (t === 'steel' || t === 'dark') {
+        html.classList.add('dark');
+      }
       if (this.preferencesLoaded()) {
-        this.savePreference('darkMode', isDark);
+        this.savePreference('theme', t);
       }
     });
   }
@@ -383,14 +389,20 @@ export class DataService {
     this.eventBus.connect('nebula-ui');
     this.eventBus.onThemeChange((theme) => {
       console.log(`[DataService] received theme change from event bus:`, theme);
-      // Map nexus-console themes: theme-dark → dark mode on, theme-light/theme-steel → dark mode off
-      const isDark = theme === 'theme-dark';
-      this.darkMode.set(isDark);
+      // Map nexus-console theme names to nebula-ui themes
+      switch (theme) {
+        case 'theme-light': this.theme.set('light'); break;
+        case 'theme-dark': this.theme.set('dark'); break;
+        case 'theme-steel': this.theme.set('steel'); break;
+        default: this.theme.set('steel');
+      }
     });
   }
 
   toggleTheme() {
-    this.darkMode.update(d => !d);
+    const cycle: Array<'steel' | 'light' | 'dark'> = ['steel', 'light', 'dark'];
+    const idx = cycle.indexOf(this.theme());
+    this.theme.set(cycle[(idx + 1) % cycle.length]);
   }
 
   // ══════════════════════════════════════════════════════════════════
