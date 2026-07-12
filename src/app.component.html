@@ -1,4 +1,5 @@
 <div class="flex h-screen w-screen overflow-hidden dark:bg-gray-900">
+  <app-toast></app-toast>
   <!-- Sidebar -->
   <aside 
     class="flex-shrink-0 h-full"
@@ -125,9 +126,12 @@
         </svg>
       </button>
 
-      <!-- Harvest search/filter (only in harvests view) -->
+      <!-- Push remaining items to the right -->
+      <div class="flex-1"></div>
+
+      <!-- ── Harvest toolbar controls (right side) ─────── -->
       @if (dataService.viewMode() === 'harvests') {
-        <div class="flex items-center gap-2 mx-2">
+        <div class="flex items-center gap-2 mr-2">
           <!-- Filter toggle -->
           <button
             (click)="dataService.toggleHarvestFilters()"
@@ -165,8 +169,50 @@
         </div>
       }
 
-      <!-- Push remaining items to the right -->
-      <div class="flex-1"></div>
+      <!-- ── Audit toolbar controls (right side) ──────── -->
+      @if (dataService.viewMode() === 'audit') {
+        <div class="flex items-center gap-1 mr-2">
+          <!-- Find in file -->
+          <button
+            (click)="dataService.auditShowFindInFile.update(v => !v)"
+            class="p-1.5 rounded-lg transition-colors"
+            [class]="dataService.auditShowFindInFile()
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+              : 'text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+            title="Find in file (Ctrl+F)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+          <!-- Search all files -->
+          <button
+            (click)="dataService.auditSearchMode.set(dataService.auditSearchMode() === 'all' ? 'file' : 'all')"
+            class="p-1.5 rounded-lg transition-colors"
+            [class]="dataService.auditSearchMode() === 'all'
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+              : 'text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+            title="Search all audit files (Ctrl+Shift+F)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 3h6v6M9 21H3v-6" />
+            </svg>
+          </button>
+          <div class="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
+          <!-- Refresh audit files -->
+          <button
+            (click)="dataService.auditRefreshTrigger.update(v => v + 1); dataService.fetchAuditFiles()"
+            [disabled]="dataService.auditLoading()"
+            class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Refresh audit files"
+          >
+            <svg class="w-3.5 h-3.5" [class.animate-spin]="dataService.auditLoading()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </button>
+        </div>
+      }
 
       <!-- View mode label -->
       <span class="text-xs text-gray-400 dark:text-gray-500 font-medium mr-2 hidden sm:inline">{{ viewModeLabel() }}</span>
@@ -356,9 +402,9 @@
     }
 
     <!-- ═══════ Content + Right Panel ═══════ -->
-    <div class="flex-1 flex min-h-0">
+    <div class="flex-1 flex min-h-0 overflow-hidden">
       <!-- Main Content -->
-      <main class="flex-1 flex flex-col min-w-0 min-h-0">
+      <main class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         @if (dataService.viewMode() === 'audit') {
           <app-audit-viewer></app-audit-viewer>
         } @else if (dataService.viewMode() === 'harvests') {

@@ -203,6 +203,7 @@ export interface HarvestCandidate {
   title: string;
   intent_description: string | null;
   status: string;
+  completed: boolean | null;
   tags: string[] | null;
   system_id: string | null;
   subsystem_id: string | null;

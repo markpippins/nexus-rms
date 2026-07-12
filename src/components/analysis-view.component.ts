@@ -1,7 +1,8 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ToastService } from '../services/toast.service';
 import { HarvestCandidate } from '../models/data.models';
 
 /** Union of candidate statuses that can be set via the analysis view. */
@@ -42,6 +43,7 @@ interface TabData {
 })
 export class AnalysisViewComponent {
   dataService = inject(DataService);
+  toastService = inject(ToastService);
 
   tabs = signal<TabData[]>([]);
   activeTabIndex = signal(0);
@@ -56,6 +58,10 @@ export class AnalysisViewComponent {
   }
 
   async loadUsefulCandidates() {
+    // Reset find-in-file state on refresh
+    this.searchQuery.set('');
+    this.showSearch.set(false);
+    this.searchMatchIndex.set(0);
     this.loading.set(true);
     this.error.set(null);
     this.tabScrollLeft.set(0);
@@ -126,7 +132,79 @@ export class AnalysisViewComponent {
     }
   }
 
+  // ── Find-in-file state for transcript content ──────────────────
+  searchQuery = signal('');
+  showSearch = signal(false);
+  searchMatchIndex = signal(0);
+
+  totalMatches = computed(() => {
+    const query = this.searchQuery().toLowerCase().trim();
+    if (!query) return 0;
+    const tab = this.activeTab();
+    if (!tab) return 0;
+    let count = 0;
+    for (const unit of tab.transcriptUnits) {
+      for (const block of unit.blocks) {
+        const text = block.content || block.items?.join(' ') || '';
+        const lower = text.toLowerCase();
+        let idx = -1;
+        while ((idx = lower.indexOf(query, idx + 1)) !== -1) count++;
+      }
+    }
+    return count;
+  });
+
+  toggleSearch() {
+    this.showSearch.update(v => !v);
+    if (!this.showSearch()) {
+      this.searchQuery.set('');
+    } else {
+      setTimeout(() => document.getElementById('analysis-search-input')?.focus(), 0);
+    }
+  }
+
+  nextMatch() {
+    const total = this.totalMatches();
+    if (total === 0) return;
+    this.searchMatchIndex.update(i => (i + 1) % total);
+    this.scrollToCurrentMatch();
+  }
+
+  prevMatch() {
+    const total = this.totalMatches();
+    if (total === 0) return;
+    this.searchMatchIndex.update(i => (i - 1 + total) % total);
+    this.scrollToCurrentMatch();
+  }
+
+  private scrollToCurrentMatch() {
+    const idx = this.searchMatchIndex();
+    setTimeout(() => {
+      const marks = document.querySelectorAll('#analysis-content .analysis-highlight');
+      if (marks.length === 0) return;
+      marks.forEach(m => m.removeAttribute('data-current'));
+      if (idx < marks.length) {
+        marks[idx].setAttribute('data-current', '');
+        marks[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
+  }
+
+  /** Escape HTML and highlight search matches */
+  highlightText(text: string | null | undefined): string {
+    if (!text) return '';
+    const query = this.searchQuery();
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (!query) return escaped;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return escaped.replace(regex, '<mark class="analysis-highlight">$1</mark>');
+  }
+
   selectTab(index: number) {
+    // Reset find-in-file state when switching tabs
+    this.searchQuery.set('');
+    this.showSearch.set(false);
+    this.searchMatchIndex.set(0);
     this.activeTabIndex.set(index);
     this.loadTranscript(index);
   }
@@ -194,6 +272,58 @@ export class AnalysisViewComponent {
     return this.togglingCandidateId() === id;
   }
 
+  /** ID of the candidate currently having its completed flag toggled. */
+  togglingCompletedId = signal<string | null>(null);
+
+  /** Toggle a candidate's completed flag with optimistic update + rollback. */
+  async toggleCandidateCompleted(candidate: HarvestCandidate) {
+    const previousValue = candidate.completed;
+    const newValue = !previousValue;
+    const actionLabel = newValue ? 'completed' : 'uncompleted';
+
+    this.togglingCompletedId.set(candidate.id);
+
+    // Optimistic update across all tabs' transcriptCandidates
+    this.tabs.update(list => list.map(t => ({
+      ...t,
+      transcriptCandidates: t.transcriptCandidates.map(c =>
+        c.id === candidate.id ? { ...c, completed: newValue } : c
+      ),
+    })));
+
+    try {
+      const result = await this.dataService.updateHarvestCandidate(candidate.id, { completed: newValue });
+      if (result) {
+        this.toastService.show(`"${candidate.title.slice(0, 40)}${candidate.title.length > 40 ? '…' : ''}" marked as ${actionLabel}`, 'success');
+      } else {
+        // Rollback on null response
+        this.tabs.update(list => list.map(t => ({
+          ...t,
+          transcriptCandidates: t.transcriptCandidates.map(c =>
+            c.id === candidate.id ? { ...c, completed: previousValue } : c
+          ),
+        })));
+        this.toastService.show('Failed to update candidate status', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle candidate completed:', err);
+      // Rollback
+      this.tabs.update(list => list.map(t => ({
+        ...t,
+        transcriptCandidates: t.transcriptCandidates.map(c =>
+          c.id === candidate.id ? { ...c, completed: previousValue } : c
+        ),
+      })));
+      this.toastService.show('Failed to update candidate status', 'error');
+    } finally {
+      this.togglingCompletedId.set(null);
+    }
+  }
+
+  isTogglingCompleted(id: string): boolean {
+    return this.togglingCompletedId() === id;
+  }
+
   // -- Transform to Requirement --
   transformingId = signal<string | null>(null);
 
@@ -228,5 +358,35 @@ export class AnalysisViewComponent {
 
   isTransforming(id: string): boolean {
     return this.transformingId() === id;
+  }
+
+  // ── Keyboard handling for find-in-file ────────────────────────
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeydown(e: KeyboardEvent) {
+    // Only handle when we have an active tab loaded
+    const tab = this.activeTab();
+    if (!tab || !tab.loaded) return;
+
+    // Ctrl+F / Cmd+F — toggle search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
+      e.preventDefault();
+      this.toggleSearch();
+      return;
+    }
+
+    // Escape — close search
+    if (e.key === 'Escape' && this.showSearch()) {
+      this.showSearch.set(false);
+      this.searchQuery.set('');
+      return;
+    }
+
+    // Enter / Shift+Enter — navigate matches
+    if (e.key === 'Enter' && this.showSearch()) {
+      e.preventDefault();
+      if (e.shiftKey) this.prevMatch();
+      else this.nextMatch();
+    }
   }
 }

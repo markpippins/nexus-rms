@@ -2,6 +2,7 @@
 import { Component, inject, computed, signal, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
+import { ToastService } from '../services/toast.service';
 import { AiService } from '../services/ai.service';
 import { Requirement, Status, ReqType, AcceptanceCriterion, AI_PLATFORMS, FolderCategory, HarvestCandidate } from '../models/data.models';
 import { FormsModule } from '@angular/forms';
@@ -22,10 +23,13 @@ import { GraphViewComponent } from './graph-view.component';
 })
 export class KanbanBoardComponent {
   dataService = inject(DataService);
+  toastService = inject(ToastService);
   aiService = inject(AiService);
   
   searchTerm = signal('');
   showModal = signal(false);
+  isMaximized = signal(false);
+  saving = signal(false);
   showAiModal = signal(false);
   showApiKeyModal = signal(false);
   showExportModal = signal(false); // New modal for export
@@ -95,6 +99,7 @@ export class KanbanBoardComponent {
 
   // ── Harvest Candidates Inline Edit State ──
   editingCandidateId = signal<string | null>(null);
+  togglingCompletedId = signal<string | null>(null);
   editCandidateSysId = signal<string>('');
   editCandidateSubId = signal<string>('');
   editCandidateFeatId = signal<string>('');
@@ -168,6 +173,41 @@ export class KanbanBoardComponent {
   }
 
   // ── Candidate Actions ──
+  async toggleCandidateCompleted(candidate: HarvestCandidate) {
+    const previousValue = candidate.completed;
+    const newValue = !previousValue;
+    const actionLabel = newValue ? 'completed' : 'uncompleted';
+
+    this.togglingCompletedId.set(candidate.id);
+
+    // Optimistic update
+    this.harvestCandidates.update(list =>
+      list.map(c => c.id === candidate.id ? { ...c, completed: newValue } : c)
+    );
+
+    try {
+      const result = await this.dataService.updateHarvestCandidate(candidate.id, { completed: newValue });
+      if (result) {
+        this.toastService.show(`"${candidate.title.slice(0, 40)}${candidate.title.length > 40 ? '…' : ''}" marked as ${actionLabel}`, 'success');
+      } else {
+        // Rollback on null response
+        this.harvestCandidates.update(list =>
+          list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+        );
+        this.toastService.show('Failed to update candidate status', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle candidate completed:', err);
+      // Rollback
+      this.harvestCandidates.update(list =>
+        list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+      );
+      this.toastService.show('Failed to update candidate status', 'error');
+    } finally {
+      this.togglingCompletedId.set(null);
+    }
+  }
+
   selectCandidate(candidate: HarvestCandidate) {
     const textToAppend = `\n\n### ${candidate.title}\n${candidate.intent_description || ''}\n`.trimStart();
     const current = this.editableReadme() || '';
@@ -476,6 +516,11 @@ export class KanbanBoardComponent {
   closeModal() {
     this.showModal.set(false);
     this.isDuplicating.set(false);
+    this.isMaximized.set(false);
+  }
+
+  toggleMaximize() {
+    this.isMaximized.update(v => !v);
   }
 
   // ── Acceptance Criteria Helpers ────────────────────────────────
@@ -501,6 +546,8 @@ export class KanbanBoardComponent {
   openAddModal() {
     this.editingReqId.set(null);
     this.isDuplicating.set(false);
+    this.isMaximized.set(false);
+    this.saving.set(false);
     this.newReqTitle = '';
     this.newReqDesc = '';
     this.newReqPriority = 'Medium';
@@ -520,6 +567,8 @@ export class KanbanBoardComponent {
   openEditModal(req: Requirement) {
     this.editingReqId.set(req.id);
     this.isDuplicating.set(false);
+    this.isMaximized.set(false);
+    this.saving.set(false);
     this.newReqTitle = req.title;
     this.newReqDesc = req.description;
     this.newReqPriority = req.priority;
@@ -539,6 +588,8 @@ export class KanbanBoardComponent {
   openDuplicateModal(req: Requirement) {
     this.editingReqId.set(null); // Ensure we are in create mode
     this.isDuplicating.set(true);
+    this.isMaximized.set(false);
+    this.saving.set(false);
 
     this.newReqTitle = `${req.title} (Copy)`;
     this.newReqDesc = req.description;
@@ -631,19 +682,24 @@ export class KanbanBoardComponent {
       this.modalFeatureId.set(availableFeats.length > 0 ? availableFeats[0].id : null);
   }
 
-  saveManual() {
+  async saveManual() {
     const sysId = this.modalSystemId();
     const subId = this.modalSubsystemId();
     const featId = this.modalFeatureId();
 
-    if (!sysId || !subId || !featId) {
-        alert("A requirement must be linked to a System, Subsystem, and Feature.");
+    if (!sysId) {
+        alert("A requirement must be linked to a System.");
+        return;
+    }
+
+    if (!this.newReqTitle.trim()) {
+        alert("A title is required.");
         return;
     }
 
     const payload = {
-        title: this.newReqTitle,
-        description: this.newReqDesc,
+        title: this.newReqTitle.trim(),
+        description: this.newReqDesc.trim(),
         priority: this.newReqPriority,
         systemId: sysId,
         subsystemId: subId,
@@ -653,19 +709,26 @@ export class KanbanBoardComponent {
         acceptanceCriteria: this.newAcceptanceCriteria().length > 0 ? this.newAcceptanceCriteria() : undefined,
     };
 
-    // Edit mode
-    const editId = this.editingReqId();
-    if (editId) {
-        this.dataService.updateRequirement(editId, payload);
-    } else {
-        // Create or Duplicate mode
-        this.dataService.addRequirement({
-            ...payload,
-            status: 'Backlog',
-        });
+    try {
+      this.saving.set(true);
+      const editId = this.editingReqId();
+      if (editId) {
+          await this.dataService.updateRequirement(editId, payload);
+          this.toastService.show('Requirement updated', 'success');
+      } else {
+          await this.dataService.addRequirement({
+              ...payload,
+              status: 'Backlog',
+          });
+          this.toastService.show('Requirement created', 'success');
+      }
+      this.closeModal();
+    } catch (err: any) {
+      console.error('Save requirement failed:', err);
+      this.toastService.show(err?.error?.detail || err?.message || 'Failed to save requirement. Check if the API server is running.', 'error');
+    } finally {
+      this.saving.set(false);
     }
-    
-    this.closeModal();
   }
 
   // --- Export Logic ---

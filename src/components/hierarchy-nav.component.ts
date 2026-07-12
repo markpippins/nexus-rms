@@ -2,6 +2,7 @@
 import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
+import { ToastService } from '../services/toast.service';
 import { FormsModule } from '@angular/forms';
 import { System, Subsystem, Feature, HarvestCandidate } from '../models/data.models';
 
@@ -13,6 +14,7 @@ import { System, Subsystem, Feature, HarvestCandidate } from '../models/data.mod
 })
 export class HierarchyNavComponent {
   dataService = inject(DataService);
+  toastService = inject(ToastService);
 
   isAddingSystem = signal(false);
   addingSubsystemTo = signal<string | null>(null);
@@ -379,6 +381,48 @@ export class HierarchyNavComponent {
 
   toggleCandidatesPanel() {
     this.showCandidatesPanel.update(v => !v);
+  }
+
+  // ── Completed Toggle ────────────────────────────────────────────
+  togglingCompletedId = signal<string | null>(null);
+
+  async toggleCandidateCompleted(candidate: HarvestCandidate) {
+    const previousValue = candidate.completed;
+    const newValue = !previousValue;
+    const actionLabel = newValue ? 'completed' : 'uncompleted';
+
+    this.togglingCompletedId.set(candidate.id);
+
+    // Optimistic update
+    this.harvestCandidates.update(list =>
+      list.map(c => c.id === candidate.id ? { ...c, completed: newValue } : c)
+    );
+
+    try {
+      const result = await this.dataService.updateHarvestCandidate(candidate.id, { completed: newValue });
+      if (result) {
+        this.toastService.show(`"${candidate.title.slice(0, 40)}${candidate.title.length > 40 ? '…' : ''}" marked as ${actionLabel}`, 'success');
+      } else {
+        // Rollback on null response
+        this.harvestCandidates.update(list =>
+          list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+        );
+        this.toastService.show('Failed to update candidate status', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle candidate completed:', err);
+      // Rollback
+      this.harvestCandidates.update(list =>
+        list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+      );
+      this.toastService.show('Failed to update candidate status', 'error');
+    } finally {
+      this.togglingCompletedId.set(null);
+    }
+  }
+
+  isTogglingCompleted(id: string): boolean {
+    return this.togglingCompletedId() === id;
   }
 
   // ── Spawn Plan Flow ─────────────────────────────────────────────

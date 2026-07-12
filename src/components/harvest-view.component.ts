@@ -1,7 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ToastService } from '../services/toast.service';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
 
 interface HarvestEntry {
@@ -47,6 +48,7 @@ interface TranscriptBlock {
 })
 export class HarvestViewComponent {
   dataService = inject(DataService);
+  toastService = inject(ToastService);
 
   selectedHarvestId = signal<string | null>(null);
   selectedHarvestCandidates = signal<HarvestCandidate[]>([]);
@@ -60,11 +62,103 @@ export class HarvestViewComponent {
   transcriptStats = signal<any>(null);
   transcriptCandidates = signal<any[]>([]);
   transcriptLoading = signal(false);
+  transcriptConversationId = signal<string | null>(null);
+  transcriptSnapshotId = signal<string | null>(null);
+
+  // ── Transcript find-in-file state ────────────────────────────
+  transcriptSearchQuery = signal('');
+  transcriptShowSearch = signal(false);
+  transcriptSearchMatchIndex = signal(0);
+
+  transcriptTotalMatches = computed(() => {
+    const query = this.transcriptSearchQuery().toLowerCase().trim();
+    if (!query) return 0;
+    let count = 0;
+    for (const unit of this.transcriptUnits()) {
+      for (const block of unit.blocks) {
+        const text = block.content || block.items?.join(' ') || '';
+        const lower = text.toLowerCase();
+        let idx = -1;
+        while ((idx = lower.indexOf(query, idx + 1)) !== -1) count++;
+      }
+    }
+    return count;
+  });
+
+  toggleTranscriptSearch() {
+    this.transcriptShowSearch.update(v => !v);
+    if (!this.transcriptShowSearch()) {
+      this.transcriptSearchQuery.set('');
+    } else {
+      setTimeout(() => document.getElementById('transcript-search-input')?.focus(), 0);
+    }
+  }
+
+  transcriptNextMatch() {
+    const total = this.transcriptTotalMatches();
+    if (total === 0) return;
+    this.transcriptSearchMatchIndex.update(i => (i + 1) % total);
+    this.scrollToTranscriptMatch();
+  }
+
+  transcriptPrevMatch() {
+    const total = this.transcriptTotalMatches();
+    if (total === 0) return;
+    this.transcriptSearchMatchIndex.update(i => (i - 1 + total) % total);
+    this.scrollToTranscriptMatch();
+  }
+
+  private scrollToTranscriptMatch() {
+    const idx = this.transcriptSearchMatchIndex();
+    setTimeout(() => {
+      const marks = document.querySelectorAll('#transcript-content .transcript-highlight');
+      if (marks.length === 0) return;
+      marks.forEach(m => m.removeAttribute('data-current'));
+      if (idx < marks.length) {
+        marks[idx].setAttribute('data-current', '');
+        marks[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
+  }
+
+  /** Escape HTML and highlight search matches */
+  highlightText(text: string | null | undefined): string {
+    if (!text) return '';
+    const query = this.transcriptSearchQuery();
+    // Escape HTML first
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (!query) return escaped;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return escaped.replace(regex, '<mark class="transcript-highlight">$1</mark>');
+  }
 
   // Promote state
   promotingId = signal<string | null>(null);
   promotingToPlan = signal(false);
   promoteToPlanResult = signal<string | null>(null);
+
+  // Filter state
+  hideCompleted = signal(false);
+
+  filteredCandidates = computed(() => {
+    if (!this.hideCompleted()) return this.selectedHarvestCandidates();
+    return this.selectedHarvestCandidates().filter(c => !c.completed);
+  });
+
+  // Bulk selection state
+  selectedCandidateIds = signal<Set<string>>(new Set());
+  bulkMarkingCompleted = signal(false);
+
+  /** Derived signal: are all visible candidates selected? */
+  allVisibleSelected = computed(() => {
+    const visible = this.filteredCandidates();
+    if (visible.length === 0) return false;
+    const ids = this.selectedCandidateIds();
+    return visible.every(c => ids.has(c.id));
+  });
+
+  // Toggle completed state
+  togglingCompletedId = signal<string | null>(null);
 
   // Transform to Requirement state
   transformingId = signal<string | null>(null);
@@ -81,6 +175,7 @@ export class HarvestViewComponent {
       return;
     }
     this.selectedHarvestId.set(id);
+    this.selectedCandidateIds.set(new Set()); // clear selection on harvest switch
     this.candidatesLoading.set(true);
     try {
       const data = await this.dataService.listHarvestCandidates({ harvestId: id, limit: 100 });
@@ -207,6 +302,10 @@ export class HarvestViewComponent {
   }
 
   async openTranscript(harvest: HarvestEntry) {
+    // Reset find-in-file state for fresh transcript
+    this.transcriptSearchQuery.set('');
+    this.transcriptShowSearch.set(false);
+    this.transcriptSearchMatchIndex.set(0);
     this.transcriptOpen.set(true);
     this.transcriptHarvestId.set(harvest.id);
     this.transcriptTitle.set(harvest.source_filename);
@@ -216,6 +315,10 @@ export class HarvestViewComponent {
       this.transcriptUnits.set(data.units || []);
       this.transcriptStats.set(data.stats);
       this.transcriptCandidates.set(data.candidates || []);
+      this.transcriptConversationId.set(data.conversationId);
+      this.transcriptSnapshotId.set(data.snapshotId);
+      this.committedSegments.set(data.committedSegments || []);
+      this.activeOverrides.set(data.activeOverrides || []);
     } catch (err: any) {
       console.error('Failed to load transcript:', err);
     } finally {
@@ -226,6 +329,8 @@ export class HarvestViewComponent {
   closeTranscript() {
     this.transcriptOpen.set(false);
     this.transcriptHarvestId.set(null);
+    this.transcriptConversationId.set(null);
+    this.transcriptSnapshotId.set(null);
     this.transcriptUnits.set([]);
     this.transcriptCandidates.set([]);
     this.transcriptStats.set(null);
@@ -304,20 +409,18 @@ export class HarvestViewComponent {
     this.committingSegment.set(true);
     this.segmentError.set(null);
 
-    const harvestId = this.transcriptHarvestId();
-    if (!harvestId) {
-      this.segmentError.set('No harvest context');
+    const conversationId = this.transcriptConversationId();
+    const snapshotId = this.transcriptSnapshotId();
+    if (!conversationId || !snapshotId) {
+      this.segmentError.set('No snapshot context — has this harvest been auto-segmented?');
       this.committingSegment.set(false);
       return;
     }
 
     try {
-      // TODO: map harvestId → actual conversation_id + snapshot_id
-      // Currently using harvestId as a placeholder until the snapshot
-      // selection/creation flow is added in a later integration step.
       const result = await this.dataService.createSegment({
-        conversationId: harvestId,
-        snapshotId: harvestId,
+        conversationId,
+        snapshotId,
         startBlockId: `block-${startId}`,
         endBlockId: `block-${endId}`,
         startBlockIndex: startId,
@@ -343,8 +446,9 @@ export class HarvestViewComponent {
 
   /** Toggle BP suppression for a block (optimistic update with rollback). */
   async toggleBlockSuppression(blockIndex: number) {
-    const harvestId = this.transcriptHarvestId();
-    if (!harvestId) return;
+    const conversationId = this.transcriptConversationId();
+    const snapshotId = this.transcriptSnapshotId();
+    if (!conversationId || !snapshotId) return;
 
     const blockId = `block-${blockIndex}`;
     const existing = this.activeOverrides().find(
@@ -366,8 +470,8 @@ export class HarvestViewComponent {
       const tempId = crypto.randomUUID();
       const optimistic: ProjectionOverrideEntry = {
         id: tempId,
-        conversation_id: harvestId,
-        snapshot_id: harvestId,
+        conversation_id: conversationId,
+        snapshot_id: snapshotId,
         target_type: 'BLOCK',
         target_id: blockId,
         projection_target: 'BP',
@@ -381,8 +485,8 @@ export class HarvestViewComponent {
       this.activeOverrides.update(overrides => [...overrides, optimistic]);
 
       const result = await this.dataService.createProjectionOverride({
-        conversationId: harvestId,
-        snapshotId: harvestId,
+        conversationId,
+        snapshotId,
         targetType: 'BLOCK',
         targetId: blockId,
         projectionTarget: 'BP',
@@ -439,6 +543,122 @@ export class HarvestViewComponent {
     }
   }
 
+  /** Toggle a candidate's completed flag via API (optimistic update with rollback). */
+  async toggleCandidateCompleted(candidate: HarvestCandidate) {
+    const previousValue = candidate.completed;
+    const newValue = !previousValue;
+    const actionLabel = newValue ? 'completed' : 'uncompleted';
+
+    this.togglingCompletedId.set(candidate.id);
+
+    // Optimistic update
+    this.selectedHarvestCandidates.update(list =>
+      list.map(c => c.id === candidate.id ? { ...c, completed: newValue } : c)
+    );
+
+    try {
+      const result = await this.dataService.updateHarvestCandidate(candidate.id, { completed: newValue });
+      if (result) {
+        this.toastService.show(`"${candidate.title.slice(0, 40)}${candidate.title.length > 40 ? '…' : ''}" marked as ${actionLabel}`, 'success');
+      } else {
+        // Rollback on null response
+        this.selectedHarvestCandidates.update(list =>
+          list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+        );
+        this.toastService.show('Failed to update candidate status', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle candidate completed:', err);
+      // Rollback
+      this.selectedHarvestCandidates.update(list =>
+        list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
+      );
+      this.toastService.show('Failed to update candidate status', 'error');
+    } finally {
+      this.togglingCompletedId.set(null);
+    }
+  }
+
+  /** Toggle selection of a single candidate. */
+  toggleCandidateSelection(candidateId: string) {
+    this.selectedCandidateIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(candidateId)) {
+        next.delete(candidateId);
+      } else {
+        next.add(candidateId);
+      }
+      return next;
+    });
+  }
+
+  /** Select or deselect all visible candidates. */
+  toggleSelectAllVisible() {
+    const visible = this.filteredCandidates();
+    const allSelected = this.allVisibleSelected();
+    this.selectedCandidateIds.update(ids => {
+      const next = new Set(ids);
+      if (allSelected) {
+        visible.forEach(c => next.delete(c.id));
+      } else {
+        visible.forEach(c => next.add(c.id));
+      }
+      return next;
+    });
+  }
+
+  /** Clear all selections. */
+  clearSelection() {
+    this.selectedCandidateIds.set(new Set());
+  }
+
+  /** Bulk-mark selected candidates as completed. */
+  async bulkMarkSelectedCompleted() {
+    const ids = Array.from(this.selectedCandidateIds());
+    if (ids.length === 0) return;
+
+    this.bulkMarkingCompleted.set(true);
+
+    // Snapshot for rollback
+    const previousCandidates = this.selectedHarvestCandidates();
+
+    // Optimistic update
+    this.selectedHarvestCandidates.update(list =>
+      list.map(c => ids.includes(c.id) ? { ...c, completed: true } : c)
+    );
+
+    // Clear selection after optimistic update
+    this.selectedCandidateIds.set(new Set());
+
+    const results = await Promise.allSettled(
+      ids.map(id => this.dataService.updateHarvestCandidate(id, { completed: true }))
+    );
+
+    const succeeded = results.filter(r => r.status === 'fulfilled' && r.value).length;
+    const failed = ids.length - succeeded;
+
+    if (failed > 0) {
+      // Rollback failed ones
+      const failedIds = new Set(
+        results
+          .map((r, i) => ({ r, id: ids[i] }))
+          .filter(({ r }) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value))
+          .map(({ id }) => id)
+      );
+      this.selectedHarvestCandidates.update(list =>
+        list.map(c => failedIds.has(c.id)
+          ? { ...c, completed: previousCandidates.find(pc => pc.id === c.id)?.completed ?? c.completed }
+          : c
+        )
+      );
+      this.toastService.show(`${succeeded} marked as completed, ${failed} failed`, 'error');
+    } else {
+      this.toastService.show(`${succeeded} candidate${succeeded !== 1 ? 's' : ''} marked as completed`, 'success');
+    }
+
+    this.bulkMarkingCompleted.set(false);
+  }
+
   // ── Promote to Plan ──────────────────────────────────────────
 
   get usefulCandidates(): HarvestCandidate[] {
@@ -492,6 +712,34 @@ export class HarvestViewComponent {
       this.promoteToPlanResult.set('Error: ' + (err.message || 'Unknown error'));
     } finally {
       this.promotingToPlan.set(false);
+    }
+  }
+
+  // ── Keyboard handling for transcript find-in-file ────────────
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeydown(e: KeyboardEvent) {
+    if (!this.transcriptOpen()) return;
+
+    // Ctrl+F / Cmd+F — toggle transcript search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
+      e.preventDefault();
+      this.toggleTranscriptSearch();
+      return;
+    }
+
+    // Escape — close search
+    if (e.key === 'Escape' && this.transcriptShowSearch()) {
+      this.transcriptShowSearch.set(false);
+      this.transcriptSearchQuery.set('');
+      return;
+    }
+
+    // Enter / Shift+Enter — navigate matches
+    if (e.key === 'Enter' && this.transcriptShowSearch()) {
+      e.preventDefault();
+      if (e.shiftKey) this.transcriptPrevMatch();
+      else this.transcriptNextMatch();
     }
   }
 

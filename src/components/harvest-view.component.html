@@ -226,6 +226,67 @@
                     </div>
                   </div>
                 }
+                @if (!candidatesLoading() && selectedHarvestCandidates().length > 0) {
+                  <!-- Candidate filter bar -->
+                  <div class="px-5 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
+                    <div class="flex items-center gap-3">
+                      <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          [checked]="hideCompleted()"
+                          (change)="hideCompleted.set(!hideCompleted())"
+                          class="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700"
+                        >
+                        Hide completed
+                      </label>
+                      @if (selectedCandidateIds().size > 0) {
+                        <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                          {{ selectedCandidateIds().size }} selected
+                        </span>
+                        <button
+                          (click)="clearSelection()"
+                          class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 underline"
+                        >
+                          Clear
+                        </button>
+                      }
+                    </div>
+                    @if (hideCompleted()) {
+                      <span class="text-xs text-gray-400 dark:text-gray-500">
+                        {{ filteredCandidates().length }} of {{ selectedHarvestCandidates().length }} shown
+                      </span>
+                    }
+                  </div>
+                  <!-- Bulk actions toolbar -->
+                  @if (selectedCandidateIds().size > 0) {
+                    <div class="px-5 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-green-50/40 dark:bg-green-900/10">
+                      <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          [checked]="allVisibleSelected()"
+                          (change)="toggleSelectAllVisible()"
+                          [disabled]="bulkMarkingCompleted()"
+                          aria-label="Select all visible candidates"
+                          class="w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                        Select all visible
+                      </label>
+                      <button
+                        (click)="bulkMarkSelectedCompleted()"
+                        [disabled]="bulkMarkingCompleted()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                      >
+                        @if (bulkMarkingCompleted()) {
+                          <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        } @else {
+                          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        }
+                        Mark {{ selectedCandidateIds().size }} as completed
+                      </button>
+                    </div>
+                  }
+                }
                 @if (candidatesLoading()) {
                   <div class="flex items-center justify-center py-8">
                     <svg class="animate-spin h-5 w-5 text-amber-500" viewBox="0 0 24 24">
@@ -237,31 +298,52 @@
                   <div class="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
                     No candidates in this harvest.
                   </div>
+                } @else if (filteredCandidates().length === 0) {
+                  <div class="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
+                    All candidates are completed.
+                    <button (click)="hideCompleted.set(false)" class="ml-1 text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300 underline">Show all</button>
+                  </div>
                 } @else {
                   <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                    @for (candidate of selectedHarvestCandidates(); track candidate.id) {
+                    @for (candidate of filteredCandidates(); track candidate.id) {
                       <div class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                         <div class="flex items-start justify-between gap-3">
-                          <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                              {{ candidate.title || 'Untitled Candidate' }}
-                            </p>
+                          <div class="flex items-start gap-2.5 flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              [checked]="selectedCandidateIds().has(candidate.id)"
+                              (change)="toggleCandidateSelection(candidate.id); $event.stopPropagation()"
+                              [disabled]="bulkMarkingCompleted()"
+                              [attr.aria-label]="'Select ' + (candidate.title || 'Untitled Candidate')"
+                              class="mt-1 w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 flex-shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                            <div class="flex-1 min-w-0">
+                              <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                {{ candidate.title || 'Untitled Candidate' }}
+                              </p>
                             @if (candidate.intent_description) {
                               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
                                 {{ candidate.intent_description }}
                               </p>
                             }
-                            <div class="flex items-center gap-2 mt-2 flex-wrap">
-                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-                                    [class]="getStatusColor(candidate.status)">
-                                {{ candidate.status || 'pending' }}
-                              </span>
-                              @if (candidate.system_id) {
-                                <span class="text-[9px] text-gray-400 dark:text-gray-500">Linked</span>
-                              }
-                              @if (candidate.subsystem_id) {
-                                <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
-                              }
+                              <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                      [class]="getStatusColor(candidate.status)">
+                                  {{ candidate.status || 'pending' }}
+                                </span>
+                                @if (candidate.completed) {
+                                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="Completed">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    Done
+                                  </span>
+                                }
+                                @if (candidate.system_id) {
+                                  <span class="text-[9px] text-gray-400 dark:text-gray-500">Linked</span>
+                                }
+                                @if (candidate.subsystem_id) {
+                                  <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
+                                }
+                              </div>
                             </div>
                           </div>
                           <div class="flex items-center gap-1 flex-shrink-0">
@@ -307,6 +389,27 @@
                                 </svg>
                               </button>
                             }
+                            <!-- Toggle Completed -->
+                            <button
+                              (click)="toggleCandidateCompleted(candidate)"
+                              [disabled]="togglingCompletedId() === candidate.id"
+                              [class]="candidate.completed
+                                ? 'p-1 rounded transition-colors text-green-500 hover:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                                : 'p-1 rounded transition-colors text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'"
+                              [title]="candidate.completed ? 'Unmark as completed' : 'Mark as completed'"
+                            >
+                              @if (togglingCompletedId() === candidate.id) {
+                                <svg class="animate-spin w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                              } @else if (candidate.completed) {
+                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                              } @else {
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                              }
+                            </button>
                             <!-- View Transcript (inline link to blocks) -->
                             <button
                               (click)="openTranscript(harvest)"
@@ -356,6 +459,68 @@
             {{ transcriptUnits().length }} turns · {{ transcriptStats().total_blocks }} blocks
           </span>
         }
+        <!-- Transcript find-in-file -->
+        @if (transcriptShowSearch()) {
+          <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg pl-2 pr-1 py-1 border border-gray-200 dark:border-gray-600 shadow-sm">
+            <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              id="transcript-search-input"
+              type="text"
+              [(ngModel)]="transcriptSearchQuery"
+              (keydown.enter)="transcriptNextMatch()"
+              (keydown.shift.enter)="transcriptPrevMatch()"
+              placeholder="Find…"
+              class="w-24 text-xs bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 px-1 py-0"
+            >
+            @if (transcriptSearchQuery()) {
+              <span class="text-[10px] text-gray-500 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap min-w-[3rem] text-center">
+                {{ transcriptTotalMatches() > 0 ? transcriptSearchMatchIndex() + 1 + ' / ' + transcriptTotalMatches() : '0 / 0' }}
+              </span>
+            }
+            <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+            <button
+              (click)="transcriptPrevMatch()"
+              class="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Previous (Shift+Enter)"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              (click)="transcriptNextMatch()"
+              class="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Next (Enter)"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+            <button
+              (click)="transcriptShowSearch.set(false); transcriptSearchQuery.set('')"
+              class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              title="Close (Esc)"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        } @else {
+          <button
+            (click)="toggleTranscriptSearch()"
+            class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Find in transcript (Ctrl+F)"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+        }
+        <div class="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
         <!-- Segmentation Mode Toggle -->
         <button
           (click)="toggleSegmentMode()"
@@ -376,7 +541,7 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+    <div id="transcript-content" class="flex-1 overflow-y-auto p-5 space-y-4">
       @if (transcriptLoading()) {
         <div class="flex items-center justify-center py-16">
           <svg class="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24">
@@ -539,24 +704,23 @@
                       <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
                     } @else if (block.type === 'code' && block.content) {
                       <div class="bg-gray-900 dark:bg-black rounded-md overflow-hidden mt-1">
-                        <pre class="p-3 text-xs text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap">{{ block.content }}</pre>
+                        <pre class="p-3 text-xs text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre>
                       </div>
                     } @else if (block.type === 'list' && block.items) {
                       <ul class="list-disc list-inside space-y-1 mt-1">
                         @for (item of block.items; track $index) {
-                          <li class="text-sm text-gray-600 dark:text-gray-300">{{ item }}</li>
+                          <li class="text-sm text-gray-600 dark:text-gray-300" [innerHTML]="highlightText(item)"></li>
                         }
                       </ul>
                     } @else if (block.type === 'quote' && block.content) {
-                      <blockquote class="border-l-2 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-300 italic mt-1">
-                        {{ block.content }}
+                      <blockquote class="border-l-2 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-300 italic mt-1" [innerHTML]="highlightText(block.content)">
                       </blockquote>
                     } @else if (block.type === 'diagram' && block.content) {
                       <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-md p-3 mt-1">
-                        <pre class="text-xs text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap">{{ block.content }}</pre>
+                        <pre class="text-xs text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre>
                       </div>
                     } @else if (block.content) {
-                      <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ block.content }}</p>
+                      <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed" [innerHTML]="highlightText(block.content)"></p>
                     } @else {
                       <span class="text-xs text-gray-400 italic">empty {{ block.type }}</span>
                     }

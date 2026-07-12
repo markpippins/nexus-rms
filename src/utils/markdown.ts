@@ -1,8 +1,11 @@
 /**
  * Simplified Markdown → HTML renderer used across nebula-ui.
  * Shared between system-info, audit-viewer, and any future markdown displays.
+ *
+ * When a searchTerm is provided, matching text is wrapped in <mark> tags
+ * with data-match-index attributes for find-in-file navigation.
  */
-export function renderMarkdown(text: string): string {
+export function renderMarkdown(text: string, searchTerm?: string): string {
   if (!text) return '<p class="text-gray-400 italic">No content</p>';
 
   let html = text
@@ -80,5 +83,39 @@ export function renderMarkdown(text: string): string {
     }
   }
 
-  return result.join('\n');
+  let finalHtml = result.join('\n');
+
+  // Apply search highlighting
+  if (searchTerm) {
+    finalHtml = highlightMatches(finalHtml, searchTerm);
+  }
+
+  return finalHtml;
+}
+
+/**
+ * Highlight search matches in HTML content without touching HTML tags or attributes.
+ * Splits HTML into tag/token segments and only processes text nodes.
+ */
+function highlightMatches(html: string, searchTerm: string): string {
+  const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!escaped) return html;
+
+  const regex = new RegExp(`(${escaped})`, 'gi');
+
+  // Split into alternating [text, tag, text, tag, ...] segments
+  // Tags include <...> and also self-closing and comments
+  const parts = html.split(/(<[^>]*>)/);
+  let matchIndex = 0;
+
+  return parts.map(part => {
+    if (part.startsWith('<') && part.endsWith('>')) {
+      return part; // Skip HTML tags unchanged
+    }
+    // Only highlight in text segments
+    return part.replace(regex, (match) => {
+      const idx = matchIndex++;
+      return `<mark class="bg-yellow-300 dark:bg-yellow-600/70 text-inherit rounded px-0.5" data-match-index="${idx}">${match}</mark>`;
+    });
+  }).join('');
 }

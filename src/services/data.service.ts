@@ -1,6 +1,7 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { UiEventBusService } from '../app/services/ui-event-bus.service';
 import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse } from '../models/data.models';
 import { environment } from '../environments/environment';
 
@@ -200,8 +201,18 @@ export class DataService {
   readonly selectedAuditFileId = signal<string | null>(null);
   readonly auditLoading = signal<boolean>(false);
 
+  /** Toggle find-in-file search bar for audit viewer (controlled from toolbar) */
+  readonly auditShowFindInFile = signal(false);
+  /** Toggle search-all mode for audit viewer (controlled from toolbar) */
+  readonly auditSearchMode = signal<'file' | 'all'>('file');
+  /** Incrementing counter to trigger audit file refresh from toolbar */
+  readonly auditRefreshTrigger = signal(0);
+
+  private eventBus = inject(UiEventBusService);
+
   constructor(private http: HttpClient) {
     this.initTheme();
+    this.connectToEventBus();
     this.bootstrap();
   }
 
@@ -368,6 +379,16 @@ export class DataService {
     });
   }
 
+  private connectToEventBus(): void {
+    this.eventBus.connect('nebula-ui');
+    this.eventBus.onThemeChange((theme) => {
+      console.log(`[DataService] received theme change from event bus:`, theme);
+      // Map nexus-console themes: theme-dark → dark mode on, theme-light/theme-steel → dark mode off
+      const isDark = theme === 'theme-dark';
+      this.darkMode.set(isDark);
+    });
+  }
+
   toggleTheme() {
     this.darkMode.update(d => !d);
   }
@@ -473,14 +494,29 @@ export class DataService {
     }
   }
 
-  async getHarvestTranscript(harvestId: string): Promise<{ harvestId: string; title: string; source: string; units: any[]; stats: any; candidates: any[] }> {
+  async getHarvestTranscript(harvestId: string): Promise<{
+    harvestId: string;
+    conversationId: string;
+    snapshotId: string | null;
+    title: string;
+    source: string;
+    units: any[];
+    stats: any;
+    candidates: any[];
+    committedSegments: SegmentEntry[];
+    activeOverrides: ProjectionOverrideEntry[];
+  }> {
     try {
       return await firstValueFrom(
         this.http.get<any>(`${this.apiUrl}/harvests/${harvestId}/transcript`)
       );
     } catch (err) {
       console.error('Failed to load transcript:', err);
-      return { harvestId, title: '', source: '', units: [], stats: null, candidates: [] };
+      return {
+        harvestId, conversationId: harvestId, snapshotId: null,
+        title: '', source: '', units: [], stats: null, candidates: [],
+        committedSegments: [], activeOverrides: [],
+      };
     }
   }
 
@@ -867,9 +903,18 @@ export class DataService {
     const optimistic: Requirement = { ...req, id: tempId, createdAt: Date.now() };
     this.requirements.update(r => [...r, optimistic]);
 
-    this.http.post<Requirement>(`${this.apiUrl}/requirements`, req).subscribe({
-      next: (real) => this.requirements.update(r => r.map(x => x.id === tempId ? real : x)),
-      error: () => this.requirements.set(previous),
+    return new Promise<Requirement>((resolve, reject) => {
+      this.http.post<Requirement>(`${this.apiUrl}/requirements`, req).subscribe({
+        next: (real) => {
+          this.requirements.update(r => r.map(x => x.id === tempId ? real : x));
+          resolve(real);
+        },
+        error: (err) => {
+          console.error('Failed to create requirement:', err);
+          this.requirements.set(previous);
+          reject(err);
+        },
+      });
     });
   }
 
@@ -893,8 +938,18 @@ export class DataService {
   updateRequirement(id: string, updates: Partial<Requirement>) {
     const previous = this.requirements();
     this.requirements.update(r => r.map(req => req.id === id ? { ...req, ...updates } : req));
-    this.http.patch(`${this.apiUrl}/requirements/${id}`, updates).subscribe({
-      error: () => this.requirements.set(previous),
+
+    return new Promise<Requirement>((resolve, reject) => {
+      this.http.patch(`${this.apiUrl}/requirements/${id}`, updates).subscribe({
+        next: (real) => {
+          resolve(real as Requirement);
+        },
+        error: (err) => {
+          console.error('Failed to update requirement:', err);
+          this.requirements.set(previous);
+          reject(err);
+        },
+      });
     });
   }
 

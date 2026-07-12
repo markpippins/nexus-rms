@@ -7,17 +7,20 @@ import { AuditTreeComponent } from './components/audit-tree.component';
 import { AuditViewerComponent } from './components/audit-viewer.component';
 import { HarvestViewComponent } from './components/harvest-view.component';
 import { AnalysisViewComponent } from './components/analysis-view.component';
+import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
+import { UiEventBusService } from './app/services/ui-event-bus.service';
 import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent],
+  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
   dataService = inject(DataService);
+  private eventBus = inject(UiEventBusService);
 
   readonly MIN_SIDEBAR_WIDTH = 224; // w-56
   readonly MAX_SIDEBAR_WIDTH = 600;
@@ -163,6 +166,15 @@ export class AppComponent {
   });
 
   constructor() {
+    // ── Publish addressbar changes to the ui-event-bus ─────────────
+    // (data.service.ts already owns the eventBus.connect('nebula-ui') call)
+    effect(() => {
+      const parts = this.breadcrumbParts();
+      if (parts.length > 0) {
+        this.eventBus.publish('location-change', parts);
+      }
+    });
+
     afterNextRender(() => {
       this.dataService.getPreference<number>('sidebarWidth').then(val => {
         if (val && val >= this.MIN_SIDEBAR_WIDTH && val <= this.MAX_SIDEBAR_WIDTH) {

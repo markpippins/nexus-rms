@@ -313,11 +313,35 @@
                     >
                       {{ candidate.status || 'unlinked' }}
                     </span>
+                    @if (candidate.completed) {
+                      <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="Completed">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Done
+                      </span>
+                    }
                     @if (candidate.harvest_source) {
                       <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono truncate">{{ candidate.harvest_source }}</span>
                     }
                   </div>
                 </div>
+                @if (isTogglingCompleted(candidate.id)) {
+                  <svg class="animate-spin w-3.5 h-3.5 text-green-500 flex-shrink-0" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                } @else {
+                  <button
+                    (click)="toggleCandidateCompleted(candidate); $event.stopPropagation()"
+                    [disabled]="isTogglingCompleted(candidate.id)"
+                    [class]="candidate.completed
+                      ? 'opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 rounded transition-all text-green-500 hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      : 'opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 rounded transition-all text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'"
+                    [title]="candidate.completed ? 'Unmark as completed' : 'Mark as completed'"
+                  >
+                    @if (candidate.completed) {
+                      <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    } @else {
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    }
+                  </button>
+                }
                 <button
                   (click)="openSpawnPlan(candidate, $event)"
                   class="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1 rounded text-purple-500 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all"

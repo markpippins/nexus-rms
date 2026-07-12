@@ -61,7 +61,6 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
               </svg>
               <!-- Tab label -->
-              <!-- Candidate title as primary label -->
               <span class="truncate max-w-[180px]" [title]="tab.candidate.title">
                 {{ tab.candidate.title || 'Untitled Candidate' }}
               </span>
@@ -76,7 +75,7 @@
                 [class.dark:bg-gray-700]="activeTabIndex() !== i"
                 [class.dark:text-gray-400]="activeTabIndex() !== i"
               >
-                {{ tab.harvestTitle?.length > 20 ? (tab.harvestTitle | slice:0:20) + '…' : tab.harvestTitle }}
+                {{ tab.harvestTitle?.length > 20 ? (tab.harvestTitle | slice:0:20) + '...' : tab.harvestTitle }}
               </span>
               <!-- Loading spinner -->
               @if (tab.loading) {
@@ -152,16 +151,76 @@
           </div>
         } @else {
           <!-- Transcript Header Bar -->
-          <div class="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-5 py-2.5 flex items-center justify-between">
+          <div class="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-5 py-2.5 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
               </svg>
               <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{{ tab.harvestTitle }}</span>
               <span class="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 font-medium hidden sm:inline">
-                {{ tab.candidate.title?.length > 32 ? (tab.candidate.title | slice:0:32) + '…' : tab.candidate.title }}
+                {{ tab.candidate.title?.length > 32 ? (tab.candidate.title | slice:0:32) + '...' : tab.candidate.title }}
               </span>
             </div>
+            <!-- Find-in-file controls -->
+            @if (showSearch()) {
+              <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg pl-2 pr-1 py-1 border border-gray-200 dark:border-gray-600 shadow-sm flex-shrink-0">
+                <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  id="analysis-search-input"
+                  type="text"
+                  [(ngModel)]="searchQuery"
+                  (keydown.enter)="nextMatch()"
+                  (keydown.shift.enter)="prevMatch()"
+                  placeholder="Find..."
+                  class="w-24 text-xs bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 px-1 py-0"
+                >
+                @if (searchQuery()) {
+                  <span class="text-[10px] text-gray-500 dark:text-gray-400 font-medium tabular-nums whitespace-nowrap min-w-[3rem] text-center">
+                    {{ totalMatches() > 0 ? searchMatchIndex() + 1 + ' / ' + totalMatches() : '0 / 0' }}
+                  </span>
+                }
+                <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                <button
+                  (click)="prevMatch()"
+                  class="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  title="Previous (Shift+Enter)"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  (click)="nextMatch()"
+                  class="p-1 rounded text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  title="Next (Enter)"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div class="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                <button
+                  (click)="showSearch.set(false); searchQuery.set('')"
+                  class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  title="Close (Esc)"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            } @else {
+              <button
+                (click)="toggleSearch()"
+                class="p-1.5 rounded-lg text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                title="Find in transcript (Ctrl+F)">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            }
             @if (tab.transcriptStats) {
               <span class="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
                 {{ tab.transcriptUnits.length }} turns · {{ tab.transcriptStats.total_blocks }} blocks
@@ -170,7 +229,7 @@
           </div>
 
           <!-- Transcript Content -->
-          <div class="p-5 space-y-4">
+          <div id="analysis-content" class="p-5 space-y-4">
             @for (unit of tab.transcriptUnits; track unit.turn_index) {
               <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <!-- Unit Header -->
@@ -199,24 +258,23 @@
                           <div class="h-px bg-gray-200 dark:bg-gray-700 my-1"></div>
                         } @else if (block.type === 'code' && block.content) {
                           <div class="bg-gray-900 dark:bg-black rounded-md overflow-hidden mt-1">
-                            <pre class="p-3 text-xs text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap">{{ block.content }}</pre>
+                            <pre class="p-3 text-xs text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre>
                           </div>
                         } @else if (block.type === 'list' && block.items) {
                           <ul class="list-disc list-inside space-y-1 mt-1">
                             @for (item of block.items; track $index) {
-                              <li class="text-sm text-gray-600 dark:text-gray-300">{{ item }}</li>
+                              <li class="text-sm text-gray-600 dark:text-gray-300" [innerHTML]="highlightText(item)"></li>
                             }
                           </ul>
                         } @else if (block.type === 'quote' && block.content) {
-                          <blockquote class="border-l-2 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-300 italic mt-1">
-                            {{ block.content }}
+                          <blockquote class="border-l-2 border-amber-400 pl-3 py-1 text-sm text-gray-600 dark:text-gray-300 italic mt-1" [innerHTML]="highlightText(block.content)">
                           </blockquote>
                         } @else if (block.type === 'diagram' && block.content) {
                           <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-md p-3 mt-1">
-                            <pre class="text-xs text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap">{{ block.content }}</pre>
+                            <pre class="text-xs text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre>
                           </div>
                         } @else if (block.content) {
-                          <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ block.content }}</p>
+                          <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed" [innerHTML]="highlightText(block.content)"></p>
                         } @else {
                           <span class="text-xs text-gray-400 italic">empty {{ block.type }}</span>
                         }
@@ -257,6 +315,31 @@
                               [class]="getStatusColor(c.status)">
                           {{ c.status || 'pending' }}
                         </span>
+                        <!-- Completed badge -->
+                        @if (c.completed) {
+                          <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Done
+                          </span>
+                        }
+                        <!-- Completed toggle -->
+                        @if (isTogglingCompleted(c.id)) {
+                          <svg class="animate-spin w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        } @else {
+                          <button
+                            (click)="toggleCandidateCompleted(c); $event.stopPropagation()"
+                            [class]="c.completed
+                              ? 'text-green-500 hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors'
+                              : 'text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 p-1 rounded transition-colors'"
+                            [title]="c.completed ? 'Unmark as completed' : 'Mark as completed'"
+                          >
+                            @if (c.completed) {
+                              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                            } @else {
+                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            }
+                          </button>
+                        }
                         <!-- useful / not-useful chip toggles -->
                         @if (c.status !== 'useful' && c.status !== 'rejected' && c.status !== 'promoted' && !isToggling(c.id)) {
                           <button

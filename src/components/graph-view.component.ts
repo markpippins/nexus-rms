@@ -501,6 +501,11 @@ export class GraphViewComponent implements OnDestroy {
   // Pinned nodes — manually dragged nodes that should not move during simulation
   private pinnedNodes = new Set<GraphNode>();
 
+  // Auto-fit tracking — ensures we fit the view after simulation spreads nodes
+  private autoFitPending = false;
+  private autoFitFrameCount = 0;
+  private autoFitInterval: number | null = null;
+
   // Knowledge data cache
   private knowledgeData: KnowledgeViewResponse | null = null;
   private auditData: AuditGraphResponse | null = null;
@@ -595,6 +600,31 @@ export class GraphViewComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Schedule the first auto-fit. After the initial synchronous buildGraph call,
+   * nodes are still clustered near the center (random initial positions). The
+   * simulation takes time to spread them into their force-directed layout.
+   * We schedule a short delay before the first fit so some spreading has occurred,
+   * then rely on periodic refits during simulation + a final fit on settle.
+   */
+  private scheduleAutoFit() {
+    this.autoFitPending = true;
+    this.autoFitFrameCount = 0;
+
+    // Fit immediately with whatever current positions exist (won't be great,
+    // but better than nothing)
+    this.autoFitView();
+
+    // Also schedule a delayed fit after the simulation has had time to spread
+    // nodes out from their tight initial cluster (using a timer rather than
+    // frame-count so it fires even if the main simulation loop pauses)
+    setTimeout(() => {
+      if (this.autoFitPending) {
+        this.autoFitView();
+      }
+    }, 2000);
+  }
+
   private buildGraph(schema: GraphSchemaMode) {
     // Clear selection + pinned nodes to avoid stale references after rebuild
     this.deselectNode();
@@ -604,6 +634,7 @@ export class GraphViewComponent implements OnDestroy {
     const centerX = 0;
     const centerY = 0;
     let colorIndex = 0;
+    this.autoFitPending = true;
 
     const getColor = (section: string, source: 'knowledge' | 'audit'): string => {
       if (source === 'audit') {
@@ -795,7 +826,16 @@ export class GraphViewComponent implements OnDestroy {
       }
     }
 
+    // Kick off simulation to let nodes settle into layout
     this.simulationRunning = true;
+
+    // After build, schedule a fit-to-view once the simulation has had time
+    // to spread nodes out from their initial clustering.
+    // The fit is re-attempted periodically in simulationStep until settled.
+    if (nodesArray.length > 0) {
+      // Initial fit right after build so nodes are visible immediately
+      this.scheduleAutoFit();
+    }
   }
 
   // ── Canvas Initialization ───────────────────────────────────────
@@ -837,6 +877,10 @@ export class GraphViewComponent implements OnDestroy {
       this.animationId = null;
     }
     this.simulationRunning = false;
+    if (this.autoFitInterval !== null) {
+      clearInterval(this.autoFitInterval);
+      this.autoFitInterval = null;
+    }
   }
 
   private simulationStep() {
@@ -920,6 +964,18 @@ export class GraphViewComponent implements OnDestroy {
     // Stop simulation when settled
     if (totalSpeed / nodesArray.length < minVelocity && this.links.length > 0) {
       this.simulationRunning = false;
+      // Final auto-fit when simulation settles — nodes are in their resting positions
+      if (this.autoFitPending) {
+        this.autoFitPending = false;
+        this.autoFitView();
+      }
+      return;
+    }
+
+    // Periodically re-fit the view while simulation is running to keep visible
+    this.autoFitFrameCount++;
+    if (this.autoFitPending && this.autoFitFrameCount % 30 === 0) {
+      this.autoFitView();
     }
   }
 
@@ -930,8 +986,23 @@ export class GraphViewComponent implements OnDestroy {
     const canvasEl = this.canvasRef()?.nativeElement;
     if (!ctx || !canvasEl) return;
 
+    // Ensure canvas dimensions match its parent layout
+    // This handles edge cases where resizeCanvas hasn't been called yet
+    // (e.g., data loads before afterNextRender fires, or layout shifts)
+    const parent = canvasEl.parentElement;
+    if (parent) {
+      const pw = parent.clientWidth;
+      const ph = parent.clientHeight;
+      if (pw > 0 && ph > 0 && (canvasEl.width !== pw || canvasEl.height !== ph)) {
+        canvasEl.width = pw;
+        canvasEl.height = ph;
+      }
+    }
+
     const width = canvasEl.width;
     const height = canvasEl.height;
+
+    if (width === 0 || height === 0) return;
 
     // Clear
     ctx.fillStyle = this.getBackgroundColor();
@@ -1063,8 +1134,12 @@ export class GraphViewComponent implements OnDestroy {
     const canvasEl = this.canvasRef()?.nativeElement;
     if (!canvasEl) return { x: sx, y: sy };
     const rect = canvasEl.getBoundingClientRect();
-    const cx = (sx - rect.width / 2) / this.cameraScale - this.cameraX;
-    const cy = (sy - rect.height / 2) / this.cameraScale - this.cameraY;
+    // Convert viewport-relative mouse coordinates to canvas-local coordinates
+    // by subtracting the canvas element's top-left position (rect.left, rect.top).
+    // Then apply the inverse of the render transform:
+    //   sx = (wx + cameraX) * scale + width/2   →   wx = (sx - width/2) / scale - cameraX
+    const cx = (sx - rect.left - rect.width / 2) / this.cameraScale - this.cameraX;
+    const cy = (sy - rect.top - rect.height / 2) / this.cameraScale - this.cameraY;
     return { x: cx, y: cy };
   }
 
@@ -1258,12 +1333,68 @@ export class GraphViewComponent implements OnDestroy {
 
   // ── Toolbar Controls ────────────────────────────────────────────
 
+  /**
+   * Auto-fit the view so all nodes are visible with padding.
+   * Computes the bounding box of all nodes and adjusts camera position/scale.
+   * Called after graph build, periodically during simulation, and on settle.
+   */
+  private autoFitView() {
+    const nodesArray = this.nodes();
+    if (nodesArray.length === 0) return;
+
+    const canvasEl = this.canvasRef()?.nativeElement;
+    if (!canvasEl) return;
+
+    const canvasWidth = canvasEl.width;
+    const canvasHeight = canvasEl.height;
+    if (canvasWidth === 0 || canvasHeight === 0) return;
+
+    // Compute bounding box of all nodes
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const n of nodesArray) {
+      if (n.x < minX) minX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y > maxY) maxY = n.y;
+    }
+
+    const bboxWidth = maxX - minX;
+    const bboxHeight = maxY - minY;
+    if (bboxWidth === 0 && bboxHeight === 0) return;
+
+    const bboxCenterX = (minX + maxX) / 2;
+    const bboxCenterY = (minY + maxY) / 2;
+
+    // Padding: 20% of the larger dimension on each side
+    const padding = Math.max(bboxWidth, bboxHeight) * 0.2 + 40;
+    const paddedWidth = bboxWidth + padding * 2;
+    const paddedHeight = bboxHeight + padding * 2;
+
+    // Compute scale to fit padded bounding box in canvas
+    const scaleX = canvasWidth / paddedWidth;
+    const scaleY = canvasHeight / paddedHeight;
+    const newScale = Math.min(scaleX, scaleY);
+
+    // Clamp scale to reasonable limits
+    this.cameraScale = Math.max(0.1, Math.min(5, newScale));
+
+    // Center camera on the bounding box center
+    this.cameraX = -bboxCenterX;
+    this.cameraY = -bboxCenterY;
+  }
+
   resetView() {
+    // Reset camera then auto-fit to re-center on all nodes
     this.cameraX = 0;
     this.cameraY = 0;
     this.cameraScale = 1;
     this.selectedNode.set(null);
     this.hoveredNode.set(null);
+    // After reset, auto-fit to show all nodes
+    setTimeout(() => this.autoFitView(), 0);
   }
 
   zoomIn() {
