@@ -1,0 +1,137 @@
+<div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
+  <!-- Header -->
+  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-gray-800 dark:text-gray-200">
+          Implementation Plans
+        </h2>
+        @if (hierarchyLabel()) {
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Scoped to <span class="font-semibold text-cyan-600 dark:text-cyan-400">{{ hierarchyLabel() }}</span>
+            · {{ count() }} plan{{ count() !== 1 ? 's' : '' }}
+          </p>
+        } @else {
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            All plans · {{ count() }} plan{{ count() !== 1 ? 's' : '' }}
+          </p>
+        }
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- Status filter tabs -->
+        <div class="flex items-center gap-1">
+          <button
+            (click)="setStatusFilter(null)"
+            class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors"
+            [class]="!statusFilter() ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+          >
+            All ({{ count() }})
+          </button>
+          @for (st of availableStatuses(); track st) {
+            @if ((statusCounts()[st] || 0) > 0) {
+              <button
+                (click)="setStatusFilter(statusFilter() === st ? null : st)"
+                class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors"
+                [class]="statusFilter() === st ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+              >
+                {{ getStatusIcon(st) }} {{ st }} ({{ statusCounts()[st] }})
+              </button>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto min-h-0 p-6">
+    @if (loading()) {
+      <div class="flex items-center justify-center py-32">
+        <svg class="animate-spin h-8 w-8 text-cyan-500" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+    } @else if (error()) {
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm text-red-700 dark:text-red-400">{{ error() }}</span>
+        </div>
+        <button (click)="retryTrigger.update(v => v + 1)" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
+      </div>
+    } @else if (filteredPlans().length === 0) {
+      <div class="flex items-center justify-center py-32">
+        <div class="text-center">
+          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+          </svg>
+          <p class="text-gray-400 dark:text-gray-500 font-medium">No plans found</p>
+          <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
+            @if (statusFilter()) {
+              Try adjusting the status filter above.
+            } @else {
+              Plans are created from harvest candidates via <span class="font-mono">Spawn Plan</span> and stored in <span class="font-mono">nebula.implementation_plans</span>.
+            }
+          </p>
+        </div>
+      </div>
+    } @else {
+      <!-- Plan Cards -->
+      <div class="space-y-3">
+        @for (plan of filteredPlans(); track plan.id) {
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all hover:shadow-md">
+            <div class="px-5 py-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">
+                      {{ plan.title || plan.id }}
+                    </h3>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <!-- Status badge -->
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          [class]="getStatusColor(plan.status)">
+                      {{ getStatusIcon(plan.status) }} {{ plan.status }}
+                    </span>
+                    <!-- Plan ID -->
+                    <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                      {{ plan.id }}
+                    </span>
+                    <!-- File size -->
+                    @if (plan.sizeBytes) {
+                      <span class="text-[10px] text-gray-400 dark:text-gray-500">
+                        {{ formatSize(plan.sizeBytes) }}
+                      </span>
+                    }
+                    <!-- Modified date -->
+                    <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
+                      {{ formatDate(plan.modifiedAt) }}
+                    </span>
+                  </div>
+                  <!-- Path -->
+                  <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1 font-mono truncate" [title]="plan.path">
+                    {{ plan.path }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Status Bar -->
+  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+    <span>
+      @if (statusFilter()) {
+        Filtered by {{ statusFilter() }}
+      } @else {
+        {{ count() }} plan{{ count() !== 1 ? 's' : '' }}
+      }
+    </span>
+    <span>{{ filteredPlans().length }} shown</span>
+  </div>
+</div>

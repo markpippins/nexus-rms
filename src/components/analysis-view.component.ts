@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { ToastService } from '../services/toast.service';
+import { getStatusColor, CANDIDATE_STATUS_COLORS } from '../app/utils/view-helpers';
 import { HarvestCandidate } from '../models/data.models';
 
 /** Union of candidate statuses that can be set via the analysis view. */
@@ -214,14 +215,7 @@ export class AnalysisViewComponent {
   // ── Helpers ──────────────────────────────────────────────────
 
   getStatusColor(status: string): string {
-    const cols: Record<string, string> = {
-      pending: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-      linked: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      useful: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      promoted: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    };
-    return cols[status] || 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+    return getStatusColor(status, CANDIDATE_STATUS_COLORS);
   }
 
   getBlockTypeBadgeClasses(type: string): string {

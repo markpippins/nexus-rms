@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { ToastService } from '../services/toast.service';
+import { formatDate, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
 
 interface HarvestEntry {
@@ -45,6 +46,7 @@ interface TranscriptBlock {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './harvest-view.component.html',
+  host: { class: 'flex-1 flex flex-col min-h-0' },
 })
 export class HarvestViewComponent {
   dataService = inject(DataService);
@@ -134,8 +136,8 @@ export class HarvestViewComponent {
 
   // Promote state
   promotingId = signal<string | null>(null);
-  promotingToPlan = signal(false);
-  promoteToPlanResult = signal<string | null>(null);
+  promotingToAgenda = signal(false);
+  promoteToAgendaResult = signal<string | null>(null);
 
   // Filter state
   hideCompleted = signal(false);
@@ -168,7 +170,7 @@ export class HarvestViewComponent {
   }
 
   async toggleHarvest(id: string) {
-    this.promoteToPlanResult.set(null); // Clear stale result when switching
+    this.promoteToAgendaResult.set(null); // Clear stale result when switching
     if (this.selectedHarvestId() === id) {
       this.selectedHarvestId.set(null);
       this.selectedHarvestCandidates.set([]);
@@ -266,15 +268,7 @@ export class HarvestViewComponent {
   }
 
   /** Return CSS classes for a block type badge. */
-  getBlockTypeBadgeClasses(type: string): string {
-    switch (type) {
-      case 'code': return 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400';
-      case 'diagram': return 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400';
-      case 'quote': return 'bg-amber-50 dark:bg-amber-900/20 text-amber-500 dark:text-amber-400';
-      case 'list': return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500 dark:text-emerald-400';
-      default: return 'bg-transparent text-gray-400 dark:text-gray-500';
-    }
-  }
+  readonly getBlockTypeBadgeClasses = getBlockTypeBadgeClasses;
 
   /** Return CSS for the START/END button based on whether it's selected. */
   getSegmentToggleClasses(isSelected: boolean): string {
@@ -692,15 +686,15 @@ export class HarvestViewComponent {
     }
   }
 
-  async promoteToPlan() {
+  async promoteToAgenda() {
     const useful = this.usefulCandidates;
     if (useful.length === 0) return;
 
-    this.promotingToPlan.set(true);
-    this.promoteToPlanResult.set(null);
+    this.promotingToAgenda.set(true);
+    this.promoteToAgendaResult.set(null);
     try {
-      const result = await this.dataService.promoteToPlan(useful.map(c => c.id));
-      this.promoteToPlanResult.set(`Plan #${result.plan_id} created: ${result.plan_title}`);
+      const result = await this.dataService.promoteToAgenda(useful.map(c => c.id));
+      this.promoteToAgendaResult.set(`Agenda created: ${result.agenda_title}`);
       // Mark all promoted as promoted locally
       const promotedIds = new Set(useful.map(c => c.id));
       const updated = this.selectedHarvestCandidates().map(c =>
@@ -708,10 +702,10 @@ export class HarvestViewComponent {
       );
       this.selectedHarvestCandidates.set(updated);
     } catch (err: any) {
-      console.error('Failed to promote to plan:', err);
-      this.promoteToPlanResult.set('Error: ' + (err.message || 'Unknown error'));
+      console.error('Failed to promote to agenda:', err);
+      this.promoteToAgendaResult.set('Error: ' + (err.message || 'Unknown error'));
     } finally {
-      this.promotingToPlan.set(false);
+      this.promotingToAgenda.set(false);
     }
   }
 
@@ -744,21 +738,10 @@ export class HarvestViewComponent {
   }
 
   getStatusColor(status: string): string {
-    const cols: Record<string, string> = {
-      pending: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-      linked: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      useful: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      promoted: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    };
-    return cols[status] || 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+    return getStatusColor(status, CANDIDATE_STATUS_COLORS);
   }
 
-  formatDate(iso: string): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
+  readonly formatDate = formatDate;
 
   truncatePath(path: string): string {
     if (!path) return '';

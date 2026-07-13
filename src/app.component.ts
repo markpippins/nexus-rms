@@ -7,15 +7,22 @@ import { AuditTreeComponent } from './components/audit-tree.component';
 import { AuditViewerComponent } from './components/audit-viewer.component';
 import { HarvestViewComponent } from './components/harvest-view.component';
 import { AnalysisViewComponent } from './components/analysis-view.component';
+import { CandidatesViewComponent } from './components/candidates-view.component';
+import { IntentRecordsViewComponent } from './components/intent-records-view.component';
+import { AgendasViewComponent } from './components/agendas-view.component';
+import { SpecificationsViewComponent } from './components/specifications-view.component';
+import { ImplementationPlansViewComponent } from './components/implementation-plans-view.component';
+import { WorkRequestsViewComponent } from './components/work-requests-view.component';
 import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
+import { formatDate, lookupHierarchyName } from './app/utils/view-helpers';
 import { UiEventBusService } from './app/services/ui-event-bus.service';
 import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, ToastComponent],
+  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -27,6 +34,9 @@ export class AppComponent {
 
   sidebarWidth = signal<number>(288); // Default w-72
   isResizing = signal<boolean>(false);
+
+  // ── Service Health Detail (expandable in banner) ─────────────
+  showServiceHealthDetail = signal(false);
 
   // ── Right Slide Panel (Backlog #4) ────────────────────────────
   showRightPanel = signal(false);
@@ -58,30 +68,10 @@ export class AppComponent {
     }
   }
 
-  formatDate(iso: string): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
+  readonly formatDate = formatDate;
 
   getHierarchyLabel(id: string, type: 'system' | 'subsystem' | 'feature'): string {
-    const systems = this.dataService.systems();
-    if (type === 'system') {
-      const sys = systems.find(s => s.id === id);
-      return sys?.name || id.slice(0, 8);
-    }
-    for (const sys of systems) {
-      if (type === 'subsystem') {
-        const sub = sys.subsystems.find(s => s.id === id);
-        if (sub) return sub.name || id.slice(0, 8);
-      } else {
-        for (const sub of sys.subsystems) {
-          const feat = sub.features.find(f => f.id === id);
-          if (feat) return feat.name || id.slice(0, 8);
-        }
-      }
-    }
-    return id.slice(0, 8);
+    return lookupHierarchyName(this.dataService, id, type);
   }
 
   async markCandidateUseful(candidate: HarvestCandidate) {
@@ -127,27 +117,43 @@ export class AppComponent {
     const sysId = this.dataService.selectedSystemId();
     const subId = this.dataService.selectedSubsystemId();
     const featId = this.dataService.selectedFeatureId();
-    const parts: { label: string; icon: string; level: string }[] = [];
+    const parts: { label: string; icon: string; level: string; id?: string }[] = [
+      { label: 'Nebula', icon: 'root', level: 'root' },
+    ];
 
     if (sysId) {
       const sys = this.dataService.systems().find(s => s.id === sysId);
-      if (sys) parts.push({ label: sys.name, icon: 'system', level: 'system' });
+      if (sys) parts.push({ label: sys.name, icon: 'system', level: 'system', id: sysId });
     }
     if (subId) {
       const sys = this.dataService.systems().find(s => s.id === this.dataService.selectedSystemId());
       const sub = sys?.subsystems.find(s => s.id === subId);
-      if (sub) parts.push({ label: sub.name, icon: 'subsystem', level: 'subsystem' });
+      if (sub) parts.push({ label: sub.name, icon: 'subsystem', level: 'subsystem', id: subId });
     }
     if (featId) {
       const sys = this.dataService.systems().find(s => s.id === this.dataService.selectedSystemId());
       const sub = sys?.subsystems.find(s => s.id === this.dataService.selectedSubsystemId());
       const feat = sub?.features.find(f => f.id === featId);
-      if (feat) parts.push({ label: feat.name, icon: 'feature', level: 'feature' });
+      if (feat) parts.push({ label: feat.name, icon: 'feature', level: 'feature', id: featId });
     }
     return parts;
   });
 
-  showAddressBar = computed(() => this.breadcrumbParts().length > 0);
+  navigateToBreadcrumb(part: { label: string; icon: string; level: string; id?: string }) {
+    if (part.level === 'root') {
+      // Go all the way home — clear all hierarchy selections
+      this.dataService.selectedSystemId.set(null);
+      this.dataService.selectedSubsystemId.set(null);
+      this.dataService.selectedFeatureId.set(null);
+    } else if (part.level === 'feature') {
+      return; // already at deepest level
+    } else if (part.level === 'subsystem') {
+      this.dataService.selectedFeatureId.set(null);
+    } else if (part.level === 'system') {
+      this.dataService.selectedSubsystemId.set(null);
+      this.dataService.selectedFeatureId.set(null);
+    }
+  }
 
   // ── View mode display labels ──────────────────────────────────
   viewModeLabel = computed(() => {
@@ -161,6 +167,12 @@ export class AppComponent {
       harvests: 'Harvests',
       audit: 'Audit Files',
       analysis: 'Analysis',
+      candidates: 'Candidates',
+      intents: 'Intent Records',
+      agendas: 'Agendas',
+      specifications: 'Specifications',
+      plans: 'Implementation Plans',
+      'work-requests': 'Work Requests',
     };
     return labels[this.dataService.viewMode()] || this.dataService.viewMode();
   });
@@ -264,6 +276,16 @@ export class AppComponent {
     document.body.style.cursor = 'col-resize';
   }
 
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: KeyboardEvent): void {
+    // Prevent default only if we actually have a selection to clear —
+    // otherwise let Escape pass through for other handlers (modals, etc.)
+    if (this.dataService.selectedSystemId() || this.dataService.selectedSubsystemId() || this.dataService.selectedFeatureId()) {
+      event.preventDefault();
+      this.navigateToBreadcrumb({ label: 'Nebula', icon: 'root', level: 'root' });
+    }
+  }
+
   @HostListener('document:mouseup')
   stopResize(): void {
     if (this.isResizing()) {
@@ -308,7 +330,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'specifications' | 'plans' | 'work-requests'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();

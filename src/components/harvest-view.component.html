@@ -1,6 +1,6 @@
-<div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
+<div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
   <!-- Content -->
-  <div class="flex-1 overflow-y-auto p-6">
+  <div class="flex-1 overflow-y-auto min-h-0 p-6">
     <!-- Distribution Panel -->
     @if (dataService.harvestShowDistribution()) {
       <div class="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-800 p-5 mb-6">
@@ -96,7 +96,7 @@
           </svg>
           <p class="text-gray-400 dark:text-gray-500 font-medium">No harvests found</p>
           <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
-            @if (dataService.harvestSearchTerm()) { Try a different search term. } @else { Run the harvest pipeline to populate data. }
+            @if (dataService.listViewSearchTerm()) { Try a different search term. } @else { Run the harvest pipeline to populate data. }
           </p>
         </div>
       </div>
@@ -198,29 +198,29 @@
             <!-- Candidates -->
             @if (selectedHarvestId() === harvest.id) {
               <div class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <!-- Promote to Plan bar -->
+                <!-- Promote to Agenda bar -->
                 @if (usefulCandidates.length > 0) {
                   <div class="px-5 py-2.5 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/30 flex items-center justify-between">
                     <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
                       {{ usefulCandidates.length }} useful candidate{{ usefulCandidates.length !== 1 ? 's' : '' }}
                     </span>
                     <div class="flex items-center gap-2">
-                      @if (promoteToPlanResult()) {
-                        <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToPlanResult() }}</span>
-                        <button (click)="promoteToPlanResult.set(null)" class="text-gray-400 hover:text-gray-600">
+                      @if (promoteToAgendaResult()) {
+                        <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToAgendaResult() }}</span>
+                        <button (click)="promoteToAgendaResult.set(null)" class="text-gray-400 hover:text-gray-600">
                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                       } @else {
                         <button
-                          (click)="promoteToPlan()"
-                          [disabled]="promotingToPlan()"
+                          (click)="promoteToAgenda()"
+                          [disabled]="promotingToAgenda()"
                           class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
-                          @if (promotingToPlan()) {
+                          @if (promotingToAgenda()) {
                             <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                           }
                           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                          Promote to Plan
+                          Promote to Agenda
                         </button>
                       }
                     </div>

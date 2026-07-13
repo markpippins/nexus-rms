@@ -1,0 +1,293 @@
+<div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
+  <!-- Header -->
+  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-gray-800 dark:text-gray-200">
+          Specifications
+        </h2>
+        @if (hierarchyLabel()) {
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Scoped to <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ hierarchyLabel() }}</span>
+            · {{ count() }} item{{ count() !== 1 ? 's' : '' }} · {{ groupedByAgenda().length }} agenda{{ groupedByAgenda().length !== 1 ? 's' : '' }}
+          </p>
+        } @else {
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            All specifications · {{ count() }} item{{ count() !== 1 ? 's' : '' }} · {{ groupedByAgenda().length }} agenda{{ groupedByAgenda().length !== 1 ? 's' : '' }}
+          </p>
+        }
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- Source type filter pills -->
+        <div class="flex items-center gap-1">
+          <button
+            (click)="sourceTypeFilter.set(null)"
+            class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors"
+            [class]="!sourceTypeFilter() ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+          >
+            All ({{ count() }})
+          </button>
+          @for (st of ['intent_record', 'requirement', 'agent_record', 'harvest_candidate', 'knowledge_graph_entry']; track st) {
+            @if ((sourceTypeCounts()[st] || 0) > 0) {
+              <button
+                (click)="sourceTypeFilter.set(sourceTypeFilter() === st ? null : st)"
+                class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors"
+                [class]="sourceTypeFilter() === st ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+              >
+                {{ getSourceTypeIcon(st) }} ({{ sourceTypeCounts()[st] }})
+              </button>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto min-h-0">
+    @if (selectedSpec(); as spec) {
+      <!-- ═══ Specification Detail View ═══ -->
+      <div class="p-6">
+        <!-- Back button -->
+        <div class="mb-4">
+          <button
+            (click)="closeDetail()"
+            class="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to specifications
+          </button>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div class="p-6 space-y-5">
+            <!-- Title + Source Type -->
+            <div>
+              <h3 class="text-base font-bold text-gray-800 dark:text-gray-100 leading-snug">{{ spec.title || 'Untitled Specification' }}</h3>
+              <div class="flex items-center gap-2 mt-2 flex-wrap">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  {{ getSourceTypeIcon(spec.source_type) }} {{ spec.source_type || '—' }}
+                </span>
+                @if (spec.agenda_title) {
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                    {{ spec.agenda_title }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <!-- Body -->
+            @if (spec.body) {
+              <div>
+                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Body</h4>
+                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{{ spec.body }}</p>
+              </div>
+            }
+
+            <!-- Decisions -->
+            @if ((spec.decisions || []).length > 0) {
+              <div>
+                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Decisions</h4>
+                <div class="flex flex-wrap gap-1.5">
+                  @for (decision of spec.decisions; track decision) {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-200 dark:border-green-800">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                      {{ decision }}
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Supporting References -->
+            @if ((spec.supporting_refs || []).length > 0) {
+              <div>
+                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Supporting References</h4>
+                <div class="flex flex-wrap gap-1.5">
+                  @for (ref of spec.supporting_refs; track ref) {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                      {{ ref }}
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- Dates -->
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+              <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Details</h4>
+              <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                @if (spec.item_created_at) {
+                  <div class="flex justify-between">
+                    <span class="text-gray-400 dark:text-gray-500">Created</span>
+                    <span class="text-gray-600 dark:text-gray-300">{{ formatDate(spec.item_created_at) }}</span>
+                  </div>
+                }
+                <div class="flex justify-between">
+                  <span class="text-gray-400 dark:text-gray-500">Agenda</span>
+                  <span class="text-gray-600 dark:text-gray-300">{{ spec.agenda_title || '—' }}</span>
+                </div>
+                @if (spec.agenda_status) {
+                  <div class="flex justify-between">
+                    <span class="text-gray-400 dark:text-gray-500">Agenda Status</span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium" [class]="getStatusColor(spec.agenda_status)">{{ spec.agenda_status }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Metadata JSON -->
+            @if (spec.metadata && Object.keys(spec.metadata).length > 0) {
+              <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Metadata</h4>
+                <pre class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-[11px] text-gray-600 dark:text-gray-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ spec.metadata | json }}</pre>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    } @else if (loading()) {
+      <div class="flex items-center justify-center py-32">
+        <svg class="animate-spin h-8 w-8 text-emerald-500" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </div>
+    } @else if (error()) {
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm text-red-700 dark:text-red-400">{{ error() }}</span>
+        </div>
+        <button (click)="retryTrigger.update(v => v + 1)" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
+      </div>
+    } @else if (filteredSpecs().length === 0) {
+      <div class="flex items-center justify-center py-32">
+        <div class="text-center">
+          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <p class="text-gray-400 dark:text-gray-500 font-medium">No specifications found</p>
+          <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
+            @if (sourceTypeFilter()) {
+              Try adjusting the filters above.
+            } @else {
+              When agenda items are marked as included, they appear here as settled specifications.
+            }
+          </p>
+        </div>
+      </div>
+    } @else {
+      <!-- Grouped by agenda -->
+      <div class="space-y-6">
+        @for (group of groupedByAgenda(); track group[0]) {
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <!-- Agenda group header -->
+            <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  {{ group[1].agenda_title }}
+                </h3>
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                      [class]="getStatusColor(group[1].agenda_status)">
+                  {{ group[1].agenda_status }}
+                </span>
+                <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
+                  {{ group[1].items.length }} item{{ group[1].items.length !== 1 ? 's' : '' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Items table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs">
+                <thead>
+                  <tr class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
+                    <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
+                    <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+                    <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Source</th>
+                    <th class="text-right px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Date</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 dark:divide-gray-700/30">
+                  @for (item of group[1].items; track item.id; let idx = $index) {
+                    <tr
+                      (click)="selectSpec(item)"
+                      class="hover:bg-white/50 dark:hover:bg-gray-700/20 transition-colors cursor-pointer"
+                      [class]="selectedSpecId() === item.id ? 'bg-emerald-50 dark:bg-emerald-900/10' : ''"
+                    >
+                      <td class="px-4 py-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-mono tabular-nums">
+                        {{ idx + 1 }}
+                      </td>
+                      <td class="px-4 py-2.5">
+                        <div>
+                          <p class="text-[11px] font-medium text-gray-700 dark:text-gray-300 leading-snug">
+                            {{ item.title || 'Untitled Item' }}
+                          </p>
+                          @if (item.body) {
+                            <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2">
+                              {{ item.body }}
+                            </p>
+                          }
+                          <!-- Decisions -->
+                          @if ((item.decisions || []).length > 0) {
+                            <div class="flex flex-wrap items-center gap-1 mt-1">
+                              @for (decision of item.decisions; track decision) {
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                                  ✓ {{ decision }}
+                                </span>
+                              }
+                            </div>
+                          }
+                          <!-- Supporting refs -->
+                          @if ((item.supporting_refs || []).length > 0) {
+                            <div class="flex flex-wrap items-center gap-1 mt-1">
+                              @for (ref of item.supporting_refs; track ref) {
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                                  🔗 {{ ref }}
+                                </span>
+                              }
+                            </div>
+                          }
+                        </div>
+                      </td>
+                      <td class="px-4 py-2.5">
+                        <span class="text-[10px] text-gray-400 dark:text-gray-500">
+                          {{ getSourceTypeIcon(item.source_type) }} {{ item.source_type || '—' }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-2.5 text-right">
+                        <span class="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                          {{ formatDate(item.item_created_at) }}
+                        </span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Status Bar -->
+  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+    <span>
+      @if (selectedSpec()) {
+        Viewing detail
+      } @else if (sourceTypeFilter()) {
+        Filtered by {{ getSourceTypeIcon(sourceTypeFilter()!) }} {{ sourceTypeFilter() }}
+      } @else {
+        {{ groupedByAgenda().length }} agenda{{ groupedByAgenda().length !== 1 ? 's' : '' }} · {{ count() }} item{{ count() !== 1 ? 's' : '' }}
+      }
+    </span>
+    <span>{{ filteredSpecs().length }} shown</span>
+  </div>
+</div>

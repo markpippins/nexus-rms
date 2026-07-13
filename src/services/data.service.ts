@@ -51,7 +51,51 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'specifications' | 'plans' | 'work-requests'>('board');
+
+  // Shared search term for all list views
+  readonly listViewSearchTerm = signal('');
+
+  readonly listViewModes = new Set(['harvests', 'candidates', 'intents', 'agendas', 'specifications', 'plans', 'work-requests']);
+  readonly isListViewMode = computed(() => this.listViewModes.has(this.viewMode()));
+
+  // Shared sort & filter panel for all list views
+  readonly listViewSortMode = signal<string>('newest');
+  readonly listViewFiltersExpanded = signal(false);
+
+  readonly listViewSortOptions: string[] = ['newest', 'oldest', 'alpha_asc', 'alpha_desc'];
+  readonly listViewSortLabels: Record<string, string> = {
+    newest: 'Newest',
+    oldest: 'Oldest',
+    alpha_asc: 'A → Z',
+    alpha_desc: 'Z → A',
+  };
+
+  toggleListViewFilters() {
+    this.listViewFiltersExpanded.update(v => !v);
+  }
+
+  /** Client-side sort helper — respects listViewSortMode. Use at end of filteredXxx() computeds. */
+  sortByMode<T extends Record<string, any>>(items: T[]): T[] {
+    const mode = this.listViewSortMode();
+    if (mode === 'newest' || mode === 'oldest') {
+      const sorted = [...items];
+      const getTs = (it: T) => it.created_at || it.updated_at || '';
+      sorted.sort((a, b) => mode === 'newest'
+        ? getTs(b).localeCompare(getTs(a))
+        : getTs(a).localeCompare(getTs(b)));
+      return sorted;
+    }
+    if (mode === 'alpha_asc' || mode === 'alpha_desc') {
+      const sorted = [...items];
+      const getName = (it: T) => it.title || it.name || '';
+      sorted.sort((a, b) => mode === 'alpha_asc'
+        ? getName(a).localeCompare(getName(b))
+        : getName(b).localeCompare(getName(a)));
+      return sorted;
+    }
+    return items;
+  }
 
   // ── Selection State ────────────────────────────────────────────
   readonly selectedSystemId = signal<string | null>(null);
@@ -99,7 +143,7 @@ export class DataService {
   );
 
   readonly harvestFilteredHarvests = computed(() => {
-    const term = this.harvestSearchTerm().toLowerCase().trim();
+    const term = this.listViewSearchTerm().toLowerCase().trim();
     let list = this.harvests();
     if (term) {
       list = list.filter((h: any) =>
@@ -253,10 +297,130 @@ export class DataService {
     }
   }
 
+  // ── Service Health Check ───────────────────────────────────
+  readonly SERVICE_HEALTH: Record<string, { name: string; port?: number; endpoint?: string }> = {
+    'nebula-srv': { name: 'Nebula API', port: 3101 },
+    'conduit-mcp': { name: 'Conduit MCP', port: 3100 },
+    'nebula-mcp': { name: 'Nebula MCP SSE', port: 3102 },
+    'tackle-mcp': { name: 'Tackle MCP', port: 3400 },
+    'postgres': { name: 'PostgreSQL', port: 5432 },
+    'redis': { name: 'Redis', port: 6379 },
+  };
+
+  readonly serviceHealth = signal<Record<string, { status: 'healthy' | 'down' | 'checking'; detail?: string; lastChecked?: number }>>(
+    Object.fromEntries(
+      Object.entries(this.SERVICE_HEALTH).map(([key]) => [key, { status: 'checking' as const }])
+    )
+  );
+
+  readonly backendHealthy = computed(() => {
+    const health = this.serviceHealth();
+    const entries = Object.values(health);
+    return entries.length > 0 && entries.every(e => e.status === 'healthy');
+  });
+
+  readonly serviceHealthSummary = computed(() => {
+    const health = this.serviceHealth();
+    const healthy = Object.values(health).filter(e => e.status === 'healthy').length;
+    const down = Object.values(health).filter(e => e.status === 'down').length;
+    const checking = Object.values(health).filter(e => e.status === 'checking').length;
+    return { total: Object.keys(health).length, healthy, down, checking };
+  });
+
+  private healthCheckInterval: any = null;
+
+  async checkBackendHealth(): Promise<boolean> {
+    // Reset all to checking
+    const current = this.serviceHealth();
+    const resetting: typeof current = {};
+    for (const key of Object.keys(current)) {
+      resetting[key] = { ...current[key], status: 'checking' };
+    }
+    this.serviceHealth.set(resetting);
+
+    // Track nebula-srv DB status for PostgreSQL
+    let nebulaDbHealthy: boolean | null = null;
+
+    // Check all services in parallel
+    const checks = Object.entries(this.SERVICE_HEALTH).map(async ([key]) => {
+      try {
+        if (key === 'postgres') {
+          // PostgreSQL is updated after the parallel checks (below) once nebula-srv reports DB status
+          return;
+        }
+        if (key === 'redis') {
+          // Redis doesn't have an HTTP endpoint — skip (not mark as healthy)
+          return;
+        }
+        const svc = this.SERVICE_HEALTH[key];
+        const url = key === 'nebula-srv'
+          ? `${this.apiUrl}/health`
+          : `http://localhost:${svc.port}/health`;
+        const res = await firstValueFrom(this.http.get<any>(url));
+        const isOk = res?.status === 'ok';
+        let detail = isOk ? 'ok' : 'error';
+        if (res?.db !== undefined) {
+          detail = `db:${res.db}`;
+          if (key === 'nebula-srv') {
+            nebulaDbHealthy = res.db === true;
+          }
+        }
+        this.serviceHealth.update(h => ({
+          ...h,
+          [key]: { status: isOk ? 'healthy' as const : 'down' as const, detail, lastChecked: Date.now() },
+        }));
+      } catch (err: any) {
+        this.serviceHealth.update(h => ({
+          ...h,
+          [key]: { status: 'down' as const, detail: err?.message || 'unreachable', lastChecked: Date.now() },
+        }));
+      }
+    });
+
+    await Promise.all(checks);
+
+    // Update PostgreSQL status from nebula-srv's DB check
+    this.serviceHealth.update(h => ({
+      ...h,
+      postgres: {
+        status: nebulaDbHealthy === true ? 'healthy' as const : 'down' as const,
+        detail: nebulaDbHealthy === null
+          ? 'nebula-srv unreachable — cannot verify'
+          : nebulaDbHealthy
+            ? 'via nebula-srv'
+            : 'database connection failed',
+        lastChecked: Date.now(),
+      },
+    }));
+
+    // Redis: mark as healthy with note (TCP-only, can't verify from browser)
+    this.serviceHealth.update(h => ({
+      ...h,
+      redis: { status: 'healthy' as const, detail: 'not checkable (TCP)', lastChecked: Date.now() },
+    }));
+
+    // Return true if all are healthy
+    const final = this.serviceHealth();
+    return Object.values(final).every(e => e.status === 'healthy');
+  }
+
+  private startHealthCheckInterval() {
+    // Check every 30 seconds
+    this.healthCheckInterval = setInterval(() => {
+      this.checkBackendHealth();
+    }, 30000);
+  }
+
   // ── Bootstrap — fetch from API, seed if empty ───────────────────
   private async bootstrap() {
     this.loading.set(true);
     try {
+      // Check backend health first
+      const healthy = await this.checkBackendHealth();
+      if (!healthy) {
+        // Don't block — let the banner show and try loading data anyway
+        console.warn('[bootstrap] Backend health check failed — data may not load');
+      }
       await this.fetchAll();
       await this.fetchPreferences();
       if (this.systems().length === 0) {
@@ -268,6 +432,8 @@ export class DataService {
     } finally {
       this.loading.set(false);
     }
+    // Start periodic health checks
+    this.startHealthCheckInterval();
   }
 
   async refreshData() {
@@ -430,6 +596,17 @@ export class DataService {
     }
   }
 
+  async getHarvestCandidate(id: string): Promise<HarvestCandidate | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<HarvestCandidate>(`${this.apiUrl}/harvest-candidates/${encodeURIComponent(id)}`)
+      );
+    } catch (err) {
+      console.error('Failed to get harvest candidate:', err);
+      return null;
+    }
+  }
+
   async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; limit?: number; offset?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
     try {
       const qs = new URLSearchParams();
@@ -481,6 +658,329 @@ export class DataService {
     } catch (err) {
       console.error('Failed to fetch feature harvest candidates:', err);
       return { featureId, candidates: [], count: 0 };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  INTENT RECORDS (hierarchy-scoped)
+  // ══════════════════════════════════════════════════════════════════
+
+  async getIntentRecord(id: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/intent-records/${encodeURIComponent(id)}`)
+      );
+    } catch (err) {
+      console.error('Failed to get intent record:', err);
+      return null;
+    }
+  }
+
+  async listIntentRecords(limit?: number): Promise<{ intentRecords: any[]; count: number }> {
+    try {
+      const qs = limit ? `?limit=${limit}` : '';
+      return await firstValueFrom(
+        this.http.get<{ intentRecords: any[]; count: number }>(`${this.apiUrl}/intent-records${qs}`)
+      );
+    } catch (err) {
+      console.error('Failed to list intent records:', err);
+      return { intentRecords: [], count: 0 };
+    }
+  }
+
+  async getSystemIntentRecords(systemId: string): Promise<{ systemId: string; intentRecords: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ systemId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/intent-records`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch system intent records:', err);
+      return { systemId, intentRecords: [], count: 0 };
+    }
+  }
+
+  async getSubsystemIntentRecords(subsystemId: string): Promise<{ subsystemId: string; intentRecords: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ subsystemId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/intent-records`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch subsystem intent records:', err);
+      return { subsystemId, intentRecords: [], count: 0 };
+    }
+  }
+
+  async getFeatureIntentRecords(featureId: string): Promise<{ featureId: string; intentRecords: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ featureId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/intent-records`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch feature intent records:', err);
+      return { featureId, intentRecords: [], count: 0 };
+    }
+  }
+
+  async promoteCandidateToRequirement(candidateId: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<any>(`${this.apiUrl}/harvest-candidates/${encodeURIComponent(candidateId)}/promote-to-requirement`, {})
+      );
+    } catch (err) {
+      console.error('Failed to promote candidate to requirement:', err);
+      return null;
+    }
+  }
+
+  async promoteIntentToRequirement(intentRecordId: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<any>(`${this.apiUrl}/intent-records/${encodeURIComponent(intentRecordId)}/promote-to-requirement`, {})
+      );
+    } catch (err) {
+      console.error('Failed to promote intent to requirement:', err);
+      return null;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  AGENDAS (hierarchy-scoped, with nested items)
+  // ══════════════════════════════════════════════════════════════════
+
+  async listAgendas(limit?: number): Promise<{ agendas: any[]; count: number }> {
+    try {
+      const qs = limit ? `?limit=${limit}` : '';
+      return await firstValueFrom(
+        this.http.get<{ agendas: any[]; count: number }>(`${this.apiUrl}/agendas${qs}`)
+      );
+    } catch (err) {
+      console.error('Failed to list agendas:', err);
+      return { agendas: [], count: 0 };
+    }
+  }
+
+  async getSystemAgendas(systemId: string): Promise<{ systemId: string; agendas: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ systemId: string; agendas: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/agendas`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch system agendas:', err);
+      return { systemId, agendas: [], count: 0 };
+    }
+  }
+
+  async getSubsystemAgendas(subsystemId: string): Promise<{ subsystemId: string; agendas: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ subsystemId: string; agendas: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/agendas`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch subsystem agendas:', err);
+      return { subsystemId, agendas: [], count: 0 };
+    }
+  }
+
+  async getAgenda(id: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/agendas/${encodeURIComponent(id)}`)
+      );
+    } catch (err) {
+      console.error('Failed to get agenda:', err);
+      return null;
+    }
+  }
+
+  async getFeatureAgendas(featureId: string): Promise<{ featureId: string; agendas: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ featureId: string; agendas: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/agendas`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch feature agendas:', err);
+      return { featureId, agendas: [], count: 0 };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  SPECIFICATIONS (settled output from agendas, hierarchy-scoped)
+  // ══════════════════════════════════════════════════════════════════
+
+  async listSpecifications(limit?: number): Promise<{ specifications: any[]; count: number }> {
+    try {
+      const qs = limit ? `?limit=${limit}` : '';
+      return await firstValueFrom(
+        this.http.get<{ specifications: any[]; count: number }>(`${this.apiUrl}/specifications${qs}`)
+      );
+    } catch (err) {
+      console.error('Failed to list specifications:', err);
+      return { specifications: [], count: 0 };
+    }
+  }
+
+  async getSystemSpecifications(systemId: string): Promise<{ systemId: string; specifications: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ systemId: string; specifications: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/specifications`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch system specifications:', err);
+      return { systemId, specifications: [], count: 0 };
+    }
+  }
+
+  async getSubsystemSpecifications(subsystemId: string): Promise<{ subsystemId: string; specifications: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ subsystemId: string; specifications: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/specifications`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch subsystem specifications:', err);
+      return { subsystemId, specifications: [], count: 0 };
+    }
+  }
+
+  async getSpecification(id: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/specifications/${encodeURIComponent(id)}`)
+      );
+    } catch (err) {
+      console.error('Failed to get specification:', err);
+      return null;
+    }
+  }
+
+  async getFeatureSpecifications(featureId: string): Promise<{ featureId: string; specifications: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ featureId: string; specifications: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/specifications`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch feature specifications:', err);
+      return { featureId, specifications: [], count: 0 };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  WORK REQUESTS (hierarchy-scoped via requirements or specifications)
+  // ══════════════════════════════════════════════════════════════════
+
+  async listWorkRequests(limit?: number): Promise<{ workRequests: any[]; count: number }> {
+    try {
+      const qs = limit ? `?limit=${limit}` : '';
+      return await firstValueFrom(
+        this.http.get<{ workRequests: any[]; count: number }>(`${this.apiUrl}/work-requests${qs}`)
+      );
+    } catch (err) {
+      console.error('Failed to list work requests:', err);
+      return { workRequests: [], count: 0 };
+    }
+  }
+
+  async getSystemWorkRequests(systemId: string): Promise<{ systemId: string; workRequests: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ systemId: string; workRequests: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/work-requests`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch system work requests:', err);
+      return { systemId, workRequests: [], count: 0 };
+    }
+  }
+
+  async getSubsystemWorkRequests(subsystemId: string): Promise<{ subsystemId: string; workRequests: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ subsystemId: string; workRequests: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/work-requests`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch subsystem work requests:', err);
+      return { subsystemId, workRequests: [], count: 0 };
+    }
+  }
+
+  async getWorkRequest(id: string): Promise<any | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/work-requests/${encodeURIComponent(id)}`)
+      );
+    } catch (err) {
+      console.error('Failed to get work request:', err);
+      return null;
+    }
+  }
+
+  async getFeatureWorkRequests(featureId: string): Promise<{ featureId: string; workRequests: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ featureId: string; workRequests: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/work-requests`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch feature work requests:', err);
+      return { featureId, workRequests: [], count: 0 };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  IMPLEMENTATION PLANS (filesystem-based, Plan 0134)
+  // ══════════════════════════════════════════════════════════════════
+
+  async listPlans(status?: string): Promise<{ plans: any[]; count: number }> {
+    try {
+      const qs = status ? `?status=${status}` : '';
+      return await firstValueFrom(
+        this.http.get<{ plans: any[]; count: number }>(`${this.apiUrl}/plans${qs}`)
+      );
+    } catch (err) {
+      console.error('Failed to list plans:', err);
+      return { plans: [], count: 0 };
+    }
+  }
+
+  async listPlanStatuses(): Promise<string[]> {
+    try {
+      const { statuses } = await firstValueFrom(
+        this.http.get<{ statuses: string[] }>(`${this.apiUrl}/implementation-plans/statuses`)
+      );
+      return statuses;
+    } catch (err) {
+      console.error('Failed to list plan statuses:', err);
+      return [];
+    }
+  }
+
+  async getSystemImplementationPlans(systemId: string): Promise<{ systemId: string; plans: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ systemId: string; plans: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/implementation-plans`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch system implementation plans:', err);
+      return { systemId, plans: [], count: 0 };
+    }
+  }
+
+  async getSubsystemImplementationPlans(subsystemId: string): Promise<{ subsystemId: string; plans: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ subsystemId: string; plans: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/implementation-plans`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch subsystem implementation plans:', err);
+      return { subsystemId, plans: [], count: 0 };
+    }
+  }
+
+  async getFeatureImplementationPlans(featureId: string): Promise<{ featureId: string; plans: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ featureId: string; plans: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/implementation-plans`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch feature implementation plans:', err);
+      return { featureId, plans: [], count: 0 };
     }
   }
 
@@ -546,9 +1046,9 @@ export class DataService {
     return res;
   }
 
-  async promoteToPlan(candidateIds: string[], project?: string, goal?: string): Promise<{ ok: boolean; plan_id: number; plan_title: string; plan_goal: string; candidates_used: number; status_results: string[] }> {
+  async promoteToAgenda(candidateIds: string[], project?: string, goal?: string): Promise<{ ok: boolean; agenda_id: string; agenda_title: string; candidates_used: number; status_results: string[] }> {
     const res = await firstValueFrom(
-      this.http.post<any>(`${this.apiUrl}/harvest-candidates/promote-to-plan`, { candidateIds, project, goal })
+      this.http.post<any>(`${this.apiUrl}/harvest-candidates/promote-to-agenda`, { candidateIds, project, goal })
     );
     return res;
   }
