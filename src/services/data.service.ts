@@ -51,7 +51,7 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'specifications' | 'plans' | 'work-requests'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
@@ -105,8 +105,17 @@ export class DataService {
   // ── Harvest Candidate Detail Selection ─────────────────────────
   readonly selectedHarvestCandidateId = signal<string | null>(null);
 
+  // Cross-component: candidate IDs for the Agenda Analysis view to load directly
+  readonly agendaAnalysisCandidateIds = signal<string[]>([]);
+
+  // Cross-component: agenda metadata for the Agenda Analysis view (planner_analysis, etc.)
+  readonly agendaAnalysisData = signal<any>(null);
+
   // Cross-component signal: when set, hierarchy-nav opens its spawn plan modal
   readonly spawnPlanIntent = signal<HarvestCandidate | null>(null);
+
+  // Cross-component signal: when set to true, the right panel auto-expands transcript
+  readonly autoExpandTranscript = signal(false);
 
   // ── Harvest Search & Filter State (shared with main toolbar) ────
   readonly harvestSearchTerm = signal('');
@@ -297,130 +306,10 @@ export class DataService {
     }
   }
 
-  // ── Service Health Check ───────────────────────────────────
-  readonly SERVICE_HEALTH: Record<string, { name: string; port?: number; endpoint?: string }> = {
-    'nebula-srv': { name: 'Nebula API', port: 3101 },
-    'conduit-mcp': { name: 'Conduit MCP', port: 3100 },
-    'nebula-mcp': { name: 'Nebula MCP SSE', port: 3102 },
-    'tackle-mcp': { name: 'Tackle MCP', port: 3400 },
-    'postgres': { name: 'PostgreSQL', port: 5432 },
-    'redis': { name: 'Redis', port: 6379 },
-  };
-
-  readonly serviceHealth = signal<Record<string, { status: 'healthy' | 'down' | 'checking'; detail?: string; lastChecked?: number }>>(
-    Object.fromEntries(
-      Object.entries(this.SERVICE_HEALTH).map(([key]) => [key, { status: 'checking' as const }])
-    )
-  );
-
-  readonly backendHealthy = computed(() => {
-    const health = this.serviceHealth();
-    const entries = Object.values(health);
-    return entries.length > 0 && entries.every(e => e.status === 'healthy');
-  });
-
-  readonly serviceHealthSummary = computed(() => {
-    const health = this.serviceHealth();
-    const healthy = Object.values(health).filter(e => e.status === 'healthy').length;
-    const down = Object.values(health).filter(e => e.status === 'down').length;
-    const checking = Object.values(health).filter(e => e.status === 'checking').length;
-    return { total: Object.keys(health).length, healthy, down, checking };
-  });
-
-  private healthCheckInterval: any = null;
-
-  async checkBackendHealth(): Promise<boolean> {
-    // Reset all to checking
-    const current = this.serviceHealth();
-    const resetting: typeof current = {};
-    for (const key of Object.keys(current)) {
-      resetting[key] = { ...current[key], status: 'checking' };
-    }
-    this.serviceHealth.set(resetting);
-
-    // Track nebula-srv DB status for PostgreSQL
-    let nebulaDbHealthy: boolean | null = null;
-
-    // Check all services in parallel
-    const checks = Object.entries(this.SERVICE_HEALTH).map(async ([key]) => {
-      try {
-        if (key === 'postgres') {
-          // PostgreSQL is updated after the parallel checks (below) once nebula-srv reports DB status
-          return;
-        }
-        if (key === 'redis') {
-          // Redis doesn't have an HTTP endpoint — skip (not mark as healthy)
-          return;
-        }
-        const svc = this.SERVICE_HEALTH[key];
-        const url = key === 'nebula-srv'
-          ? `${this.apiUrl}/health`
-          : `http://localhost:${svc.port}/health`;
-        const res = await firstValueFrom(this.http.get<any>(url));
-        const isOk = res?.status === 'ok';
-        let detail = isOk ? 'ok' : 'error';
-        if (res?.db !== undefined) {
-          detail = `db:${res.db}`;
-          if (key === 'nebula-srv') {
-            nebulaDbHealthy = res.db === true;
-          }
-        }
-        this.serviceHealth.update(h => ({
-          ...h,
-          [key]: { status: isOk ? 'healthy' as const : 'down' as const, detail, lastChecked: Date.now() },
-        }));
-      } catch (err: any) {
-        this.serviceHealth.update(h => ({
-          ...h,
-          [key]: { status: 'down' as const, detail: err?.message || 'unreachable', lastChecked: Date.now() },
-        }));
-      }
-    });
-
-    await Promise.all(checks);
-
-    // Update PostgreSQL status from nebula-srv's DB check
-    this.serviceHealth.update(h => ({
-      ...h,
-      postgres: {
-        status: nebulaDbHealthy === true ? 'healthy' as const : 'down' as const,
-        detail: nebulaDbHealthy === null
-          ? 'nebula-srv unreachable — cannot verify'
-          : nebulaDbHealthy
-            ? 'via nebula-srv'
-            : 'database connection failed',
-        lastChecked: Date.now(),
-      },
-    }));
-
-    // Redis: mark as healthy with note (TCP-only, can't verify from browser)
-    this.serviceHealth.update(h => ({
-      ...h,
-      redis: { status: 'healthy' as const, detail: 'not checkable (TCP)', lastChecked: Date.now() },
-    }));
-
-    // Return true if all are healthy
-    const final = this.serviceHealth();
-    return Object.values(final).every(e => e.status === 'healthy');
-  }
-
-  private startHealthCheckInterval() {
-    // Check every 30 seconds
-    this.healthCheckInterval = setInterval(() => {
-      this.checkBackendHealth();
-    }, 30000);
-  }
-
   // ── Bootstrap — fetch from API, seed if empty ───────────────────
   private async bootstrap() {
     this.loading.set(true);
     try {
-      // Check backend health first
-      const healthy = await this.checkBackendHealth();
-      if (!healthy) {
-        // Don't block — let the banner show and try loading data anyway
-        console.warn('[bootstrap] Backend health check failed — data may not load');
-      }
       await this.fetchAll();
       await this.fetchPreferences();
       if (this.systems().length === 0) {
@@ -432,8 +321,6 @@ export class DataService {
     } finally {
       this.loading.set(false);
     }
-    // Start periodic health checks
-    this.startHealthCheckInterval();
   }
 
   async refreshData() {
@@ -792,6 +679,47 @@ export class DataService {
     }
   }
 
+  /** Finalize an agenda into a specification (snapshots items + creates spec row). */
+  async finalizeAgenda(agendaId: string, revisionType: string = 'created'): Promise<{ ok: boolean; spec_id: string } | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<{ ok: boolean; spec_id: string }>(`${this.apiUrl}/agendas/${encodeURIComponent(agendaId)}/finalize`, { revisionType })
+      );
+    } catch (err) {
+      console.error('Failed to finalize agenda:', err);
+      return null;
+    }
+  }
+
+  /** Add a single item to an existing agenda. */
+  async addAgendaItem(agendaId: string, item: {
+    sourceType: string; sourceId: string; title: string;
+    body?: string; decisions?: string[]; openQuestions?: string[];
+    supportingRefs?: string[]; included?: boolean; plannerNote?: string;
+  }): Promise<{ ok: boolean; item: any } | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<{ ok: boolean; item: any }>(`${this.apiUrl}/agendas/${encodeURIComponent(agendaId)}/items`, item)
+      );
+    } catch (err) {
+      console.error('Failed to add agenda item:', err);
+      return null;
+    }
+  }
+
+  /** Delete an agenda item by agenda ID + source ID (candidate UUID). */
+  async deleteAgendaItem(agendaId: string, sourceId: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.http.delete(`${this.apiUrl}/agendas/${encodeURIComponent(agendaId)}/items?sourceId=${encodeURIComponent(sourceId)}`)
+      );
+      return true;
+    } catch (err) {
+      console.error('Failed to delete agenda item:', err);
+      return false;
+    }
+  }
+
   async getFeatureAgendas(featureId: string): Promise<{ featureId: string; agendas: any[]; count: number }> {
     try {
       return await firstValueFrom(
@@ -848,6 +776,20 @@ export class DataService {
       );
     } catch (err) {
       console.error('Failed to get specification:', err);
+      return null;
+    }
+  }
+
+  /** Link a specification to requirements by matching candidate_ids from its item_snapshot. */
+  async linkSpecRequirements(specId: string): Promise<{ ok: boolean; linked: number; candidate_count: number; requirement_count: number } | null> {
+    try {
+      return await firstValueFrom(
+        this.http.post<{ ok: boolean; linked: number; candidate_count: number; requirement_count: number }>(
+          `${this.apiUrl}/specifications/${encodeURIComponent(specId)}/link-requirements`, {}
+        )
+      );
+    } catch (err) {
+      console.error('Failed to link spec requirements:', err);
       return null;
     }
   }

@@ -439,6 +439,13 @@ export class HierarchyNavComponent {
     }
   }
 
+  /** Select a candidate and auto-expand its transcript in the right panel */
+  viewCandidateTranscript(candidate: HarvestCandidate, event: Event) {
+    event.stopPropagation();
+    this.dataService.selectedHarvestCandidateId.set(candidate.id);
+    this.dataService.autoExpandTranscript.set(true);
+  }
+
   /** Watch for spawn plan intent from the right panel detail view */
   private spawnPlanIntentEffect = effect(() => {
     const candidate = this.dataService.spawnPlanIntent();

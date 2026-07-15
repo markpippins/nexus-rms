@@ -29,6 +29,10 @@ export class SpecificationsViewComponent {
   selectedSpecId = signal<string | null>(null);
   selectedSpecData = signal<any | null>(null);
 
+  // Link requirements state
+  linkingRequirements = signal(false);
+  linkResult = signal<{ linked: number; candidate_count: number; requirement_count: number } | null>(null);
+
   selectedSpec = computed(() => this.selectedSpecData());
 
   private readonly STATUS_COLORS: Record<string, string> = {
@@ -45,14 +49,21 @@ export class SpecificationsViewComponent {
     const term = this.dataService.listViewSearchTerm().toLowerCase().trim();
     let result = this.specifications();
     if (this.sourceTypeFilter()) {
-      result = result.filter(s => s.source_type === this.sourceTypeFilter());
+      result = result.filter(s => {
+        const items = s.items || [];
+        return items.some((i: any) => i.source_type === this.sourceTypeFilter());
+      });
     }
     if (term) {
-      result = result.filter((s: any) =>
-        (s.title || '').toLowerCase().includes(term) ||
-        (s.body || '').toLowerCase().includes(term) ||
-        (s.source_type || '').toLowerCase().includes(term)
-      );
+      result = result.filter((s: any) => {
+        const items = s.items || [];
+        return (s.change_summary || '').toLowerCase().includes(term) ||
+          (s.agenda_title || '').toLowerCase().includes(term) ||
+          items.some((i: any) =>
+            (i.title || '').toLowerCase().includes(term) ||
+            (i.body || '').toLowerCase().includes(term)
+          );
+      });
     }
     return this.dataService.sortByMode(result);
   });
@@ -60,11 +71,19 @@ export class SpecificationsViewComponent {
   sourceTypeCounts = computed(() => {
     const counts: Record<string, number> = {};
     for (const s of this.specifications()) {
-      const st = s.source_type || 'unknown';
-      counts[st] = (counts[st] || 0) + 1;
+      const items = s.items || [];
+      for (const item of items) {
+        const st = item.source_type || 'unknown';
+        counts[st] = (counts[st] || 0) + 1;
+      }
     }
     return counts;
   });
+
+  /** Get item count for a spec revision. */
+  itemCount(spec: any): number {
+    return (spec.items || []).length;
+  }
 
   // Group specs by agenda
   groupedByAgenda = computed(() => {
@@ -136,6 +155,24 @@ export class SpecificationsViewComponent {
   closeDetail() {
     this.selectedSpecId.set(null);
     this.selectedSpecData.set(null);
+    this.linkResult.set(null);
+  }
+
+  async linkRequirements(specId: string) {
+    this.linkingRequirements.set(true);
+    this.linkResult.set(null);
+    try {
+      const result = await this.dataService.linkSpecRequirements(specId);
+      if (result?.ok) {
+        this.linkResult.set({ linked: result.linked, candidate_count: result.candidate_count, requirement_count: result.requirement_count });
+      } else {
+        this.linkResult.set({ linked: 0, candidate_count: 0, requirement_count: 0 });
+      }
+    } catch (err: any) {
+      console.error('Failed to link requirements:', err);
+    } finally {
+      this.linkingRequirements.set(false);
+    }
   }
 
   getStatusColor(status: string): string {

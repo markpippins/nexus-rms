@@ -45,139 +45,13 @@
 
   <!-- Content -->
   <div class="flex-1 overflow-y-auto min-h-0">
-    @if (selectedAgenda(); as agenda) {
-      <!-- ═══ Agenda Detail View ═══ -->
-      <div class="p-6">
-        <!-- Back button -->
-        <div class="mb-4">
-          <button
-            (click)="closeDetail()"
-            class="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium transition-colors"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-            Back to agendas
-          </button>
-        </div>
-
-        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div class="p-6 space-y-5">
-            <!-- Title + Status -->
-            <div>
-              <h3 class="text-base font-bold text-gray-800 dark:text-gray-100 leading-snug">{{ agenda.title || 'Untitled Agenda' }}</h3>
-              <div class="flex items-center gap-2 mt-2 flex-wrap">
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium"
-                      [class]="getStatusColor(agenda.status)">
-                  {{ getStatusLabel(agenda.status) }}
-                </span>
-                @if (agenda.cohesion_score != null) {
-                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium"
-                        [class]="getCohesionBg(agenda.cohesion_score)">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                    <span [class]="getCohesionColor(agenda.cohesion_score)">Cohesion: {{ (agenda.cohesion_score * 100).toFixed(0) }}%</span>
-                  </span>
-                }
-              </div>
-            </div>
-
-            <!-- Scope -->
-            @if (agenda.scope) {
-              <div>
-                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Scope</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{{ agenda.scope }}</p>
-              </div>
-            }
-
-            <!-- Planner Analysis -->
-            @if (agenda.planner_analysis) {
-              <div>
-                <h4 class="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-1.5">Planner Analysis</h4>
-                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{{ agenda.planner_analysis }}</p>
-              </div>
-            }
-
-            <!-- Items List -->
-            @if (agenda.items?.length) {
-              <div>
-                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Items ({{ agenda.items.length }})</h4>
-                <div class="space-y-2">
-                  @for (item of agenda.items; track item.id; let idx = $index) {
-                    <div class="bg-gray-50 dark:bg-gray-900/30 rounded-lg border border-gray-100 dark:border-gray-700 p-3">
-                      <div class="flex items-start gap-3">
-                        <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono tabular-nums mt-0.5">{{ idx + 1 }}.</span>
-                        <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium text-gray-800 dark:text-gray-200 leading-snug">{{ item.title || 'Untitled Item' }}</p>
-                          @if (item.body) {
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{{ item.body }}</p>
-                          }
-                          <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                            <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ getSourceTypeIcon(item.source_type) }} {{ item.source_type || '—' }}</span>
-                            @if (item.source_id) {
-                              <span class="text-[9px] font-mono text-gray-400 dark:text-gray-500 cursor-pointer hover:text-blue-500 dark:hover:text-blue-400 hover:underline" [title]="item.source_id" (click)="viewCandidate(item.source_id); $event.stopPropagation()">
-                                {{ item.source_id.slice(0, 8) }}…
-                              </span>
-                            }
-                            @if (item.source_status) {
-                              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-                                    [class]="getCandidateStatusColor(item.source_status)">
-                                {{ item.source_status }}
-                              </span>
-                            }
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-                                  [class]="getItemIncludedColor(item.included)">
-                              {{ getItemIncludedLabel(item.included) }}
-                            </span>
-                          </div>
-                          @if ((item.decisions || []).length > 0) {
-                            <div class="flex flex-wrap items-center gap-1 mt-2">
-                              @for (decision of item.decisions; track decision) {
-                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400">✓ {{ decision }}</span>
-                              }
-                            </div>
-                          }
-                          @if ((item.open_questions || []).length > 0) {
-                            <div class="flex flex-wrap items-center gap-1 mt-1">
-                              @for (q of item.open_questions; track q) {
-                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">? {{ q }}</span>
-                              }
-                            </div>
-                          }
-                          @if (item.planner_note) {
-                            <p class="text-[10px] text-purple-500 dark:text-purple-400 mt-1 italic">Note: {{ item.planner_note }}</p>
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-
-            <!-- Dates -->
-            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
-              <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Details</h4>
-              <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-400 dark:text-gray-500">Created</span>
-                  <span class="text-gray-600 dark:text-gray-300">{{ formatDate(agenda.created_at) }}</span>
-                </div>
-                @if (agenda.updated_at && agenda.updated_at !== agenda.created_at) {
-                  <div class="flex justify-between">
-                    <span class="text-gray-400 dark:text-gray-500">Updated</span>
-                    <span class="text-gray-600 dark:text-gray-300">{{ formatDate(agenda.updated_at) }}</span>
-                  </div>
-                }
-              </div>
-            </div>
-
-            <!-- Metadata JSON -->
-            @if (agenda.metadata && Object.keys(agenda.metadata).length > 0) {
-              <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
-                <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Metadata</h4>
-                <pre class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 text-[11px] text-gray-600 dark:text-gray-300 font-mono overflow-x-auto whitespace-pre-wrap">{{ agenda.metadata | json }}</pre>
-              </div>
-            }
-          </div>
-        </div>
+    @if (openingAgenda()) {
+      <div class="flex flex-col items-center justify-center py-32 gap-3">
+        <svg class="animate-spin h-8 w-8 text-emerald-500" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Loading candidates for analysis…</p>
       </div>
     } @else if (loading()) {
       <div class="flex items-center justify-center py-32">
@@ -215,17 +89,15 @@
       <div class="p-6 space-y-4">
         @for (agenda of filteredAgendas(); track agenda.id) {
           <div
-            class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all hover:shadow-md cursor-pointer"
-            [class]="selectedAgendaId() === agenda.id ? 'ring-2 ring-emerald-400 dark:ring-emerald-600' : ''"
+            class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all hover:shadow-md cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700"
             (click)="selectAgenda(agenda)"
           >
-            <!-- Agenda Header (click to expand) -->
+            <!-- Agenda Header -->
             <div
-              class="px-5 py-4 cursor-pointer select-none"
+              class="px-5 py-4"
               [class.border-b]="isExpanded(agenda.id)"
               [class.border-gray-100]="isExpanded(agenda.id)"
               [class.dark:border-gray-700]="isExpanded(agenda.id)"
-              (click)="toggleExpand(agenda.id)"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0">
@@ -233,14 +105,20 @@
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-snug">
                       {{ agenda.title || 'Untitled Agenda' }}
                     </h3>
-                    <!-- Expand toggle icon -->
-                    <svg
-                      class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-transform duration-200 flex-shrink-0"
-                      [class.rotate-90]="isExpanded(agenda.id)"
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    <!-- Expand toggle button -->
+                    <button
+                      (click)="toggleExpand(agenda.id); $event.stopPropagation()"
+                      class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                      [title]="isExpanded(agenda.id) ? 'Collapse items' : 'Expand items'"
                     >
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
+                      <svg
+                        class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-transform duration-200"
+                        [class.rotate-90]="isExpanded(agenda.id)"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </button>
                   </div>
                   @if (agenda.scope) {
                     <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
@@ -282,6 +160,11 @@
                       {{ formatDate(agenda.created_at) }}
                     </span>
                   </div>
+                  <!-- Click hint -->
+                  <div class="mt-2 flex items-center gap-1 text-[10px] text-emerald-500 dark:text-emerald-400">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Click to analyze candidates
+                  </div>
                 </div>
               </div>
             </div>
@@ -301,7 +184,7 @@
                         <svg class="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         <div class="flex-1 min-w-0">
                           <p class="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-1">Planner Analysis</p>
-                          <p class="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-4">{{ agenda.planner_analysis }}</p>
+                          <p class="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">{{ agenda.planner_analysis }}</p>
                         </div>
                       </div>
                     </div>
@@ -334,7 +217,6 @@
                                     {{ item.body }}
                                   </p>
                                 }
-                                <!-- Decisions -->
                                 @if ((item.decisions || []).length > 0) {
                                   <div class="flex flex-wrap items-center gap-1 mt-1">
                                     @for (decision of item.decisions; track decision) {
@@ -344,7 +226,6 @@
                                     }
                                   </div>
                                 }
-                                <!-- Open questions -->
                                 @if ((item.open_questions || []).length > 0) {
                                   <div class="flex flex-wrap items-center gap-1 mt-1">
                                     @for (q of item.open_questions; track q) {
@@ -354,7 +235,6 @@
                                     }
                                   </div>
                                 }
-                                <!-- Planner note -->
                                 @if (item.planner_note) {
                                   <p class="text-[10px] text-purple-500 dark:text-purple-400 mt-1 italic">Note: {{ item.planner_note }}</p>
                                 }
@@ -395,9 +275,7 @@
   <!-- Status Bar -->
   <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
     <span>
-      @if (selectedAgenda()) {
-        Viewing detail
-      } @else if (statusFilter()) {
+      @if (statusFilter()) {
         Filtered by {{ getStatusLabel(statusFilter()!) }}
       } @else {
         {{ count() }} agenda{{ count() !== 1 ? 's' : '' }} · {{ totalItems() }} item{{ totalItems() !== 1 ? 's' : '' }}

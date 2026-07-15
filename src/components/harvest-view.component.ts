@@ -58,6 +58,7 @@ export class HarvestViewComponent {
 
   // Transcript viewer state
   transcriptOpen = signal(false);
+  transcriptMaximized = signal(false);
   transcriptHarvestId = signal<string | null>(null);
   transcriptTitle = signal('');
   transcriptUnits = signal<TranscriptUnit[]>([]);
@@ -320,8 +321,13 @@ export class HarvestViewComponent {
     }
   }
 
+  toggleTranscriptMaximize() {
+    this.transcriptMaximized.update(v => !v);
+  }
+
   closeTranscript() {
     this.transcriptOpen.set(false);
+    this.transcriptMaximized.set(false);
     this.transcriptHarvestId.set(null);
     this.transcriptConversationId.set(null);
     this.transcriptSnapshotId.set(null);

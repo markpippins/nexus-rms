@@ -37,12 +37,12 @@ interface TabData {
 }
 
 @Component({
-  selector: 'app-analysis-view',
+  selector: 'app-agenda-analysis-view',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './analysis-view.component.html',
+  templateUrl: './agenda-analysis-view.component.html',
 })
-export class AnalysisViewComponent {
+export class AgendaAnalysisViewComponent {
   dataService = inject(DataService);
   toastService = inject(ToastService);
 
@@ -54,29 +54,66 @@ export class AnalysisViewComponent {
   // Tab scroll state
   tabScrollLeft = signal(0);
 
+  // Collapse toggle for long planner analysis text
+  plannerAnalysisExpanded = signal(false);
+
+  /** Proportional collapse threshold: half the text length, min 300, max 800 chars. */
+  plannerAnalysisThreshold = computed(() => {
+    const text = this.dataService.agendaAnalysisData()?.planner_analysis || '';
+    if (!text) return 500;
+    return Math.min(800, Math.max(300, Math.floor(text.length / 2)));
+  });
+
+  /** Assessment items from the agenda (when no candidates are available). */
+  assessmentItems = computed(() => {
+    const data = this.dataService.agendaAnalysisData();
+    if (!data?.items) return [];
+    return data.items.filter((item: any) => item.source_type === 'assessment');
+  });
+
   constructor() {
-    this.loadUsefulCandidates();
+    this.loadAgendaCandidates();
   }
 
-  async loadUsefulCandidates() {
-    // Reset find-in-file state on refresh
+  /** Navigate back to the Agendas view. */
+  backToAgendas() {
+    this.dataService.viewMode.set('agendas');
+  }
+
+  /** Load candidates from the agendaAnalysisCandidateIds signal (bypasses useful filter). */
+  async loadAgendaCandidates() {
     this.searchQuery.set('');
     this.showSearch.set(false);
     this.searchMatchIndex.set(0);
     this.loading.set(true);
     this.error.set(null);
     this.tabScrollLeft.set(0);
-    try {
-      // Fetch all candidates and filter for 'useful' client-side
-      const data = await this.dataService.listHarvestCandidates({ limit: 500 });
-      const useful = (data.candidates || []).filter((c: HarvestCandidate) => c.status === 'useful');
+    this.plannerAnalysisExpanded.set(false);
 
-      // Deduplicate by harvest_id — one tab per harvest that has at least one useful candidate
-      const seenHarvests = new Map<string, HarvestCandidate>();
-      for (const c of useful) {
-        const hid = c.harvest_id;
-        if (hid && !seenHarvests.has(hid)) {
-          seenHarvests.set(hid, c);
+    try {
+      const candidateIds = this.dataService.agendaAnalysisCandidateIds();
+      if (candidateIds.length === 0) {
+        this.loading.set(false);
+        return;
+      }
+
+      // Fetch each candidate by ID
+      const results = await Promise.allSettled(
+        candidateIds.map(id => this.dataService.getHarvestCandidate(id))
+      );
+
+      // Deduplicate by harvest_id — one tab per harvest
+      const seenHarvests = new Map<string, any>();
+      let failedFetches = 0;
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          const candidate = result.value;
+          const hid = candidate.harvest_id;
+          if (hid && !seenHarvests.has(hid)) {
+            seenHarvests.set(hid, candidate);
+          }
+        } else {
+          failedFetches++;
         }
       }
 
@@ -94,14 +131,29 @@ export class AnalysisViewComponent {
       this.tabs.set(tabList);
 
       if (tabList.length > 0) {
-        // Auto-load the first tab
+        const total = candidateIds.length;
+        const loaded = seenHarvests.size;
+        const msg = `Loaded ${loaded} harvest${loaded !== 1 ? 's' : ''}` +
+          (failedFetches > 0 ? ` (${failedFetches} candidate${failedFetches !== 1 ? 's' : ''} unavailable)` : '') +
+          ` from ${total} candidate${total !== 1 ? 's' : ''}.`;
+        this.toastService.show(msg, failedFetches > 0 ? 'info' : 'success');
         this.loadTranscript(0);
+      } else if (candidateIds.length > 0) {
+        this.toastService.show(
+          `${candidateIds.length} candidate${candidateIds.length !== 1 ? 's' : ''} could not be fetched — they may have been deleted.`,
+          'error'
+        );
       }
     } catch (err: any) {
-      this.error.set(err.message || 'Failed to load useful candidates');
+      this.error.set(err.message || 'Failed to load candidates');
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async loadUsefulCandidates() {
+    // Keep as fallback for the Analysis view (not used by Agenda Analysis)
+    return this.loadAgendaCandidates();
   }
 
   async loadTranscript(tabIndex: number) {
@@ -160,7 +212,7 @@ export class AnalysisViewComponent {
     if (!this.showSearch()) {
       this.searchQuery.set('');
     } else {
-      setTimeout(() => document.getElementById('analysis-search-input')?.focus(), 0);
+      setTimeout(() => document.getElementById('agenda-analysis-search-input')?.focus(), 0);
     }
   }
 
@@ -181,7 +233,7 @@ export class AnalysisViewComponent {
   private scrollToCurrentMatch() {
     const idx = this.searchMatchIndex();
     setTimeout(() => {
-      const marks = document.querySelectorAll('#analysis-content .analysis-highlight');
+      const marks = document.querySelectorAll('#agenda-analysis-content .agenda-analysis-highlight');
       if (marks.length === 0) return;
       marks.forEach(m => m.removeAttribute('data-current'));
       if (idx < marks.length) {
@@ -198,23 +250,41 @@ export class AnalysisViewComponent {
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     if (!query) return escaped;
     const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return escaped.replace(regex, '<mark class="analysis-highlight">$1</mark>');
+    return escaped.replace(regex, '<mark class="agenda-analysis-highlight">$1</mark>');
   }
 
-  /** Close a tab: reject the candidate (unmark useful) and remove the tab. */
+  /** Close a tab: unset useful → linked (non-terminal), remove from tracked IDs,
+   *  delete the agenda item from the DB, and drop the tab. */
   async closeTab(event: MouseEvent, tabIndex: number) {
     event.stopPropagation();
     const tab = this.tabs()[tabIndex];
     if (!tab) return;
 
+    const candidateId = tab.candidate.id;
+    const agendaId = this.dataService.agendaAnalysisData()?.id;
+
     try {
-      await this.dataService.rejectHarvestCandidate(tab.candidate.id);
-      this.toastService.show(`"${tab.candidate.title.slice(0, 40)}${tab.candidate.title.length > 40 ? '…' : ''}" removed from analysis`, 'info');
+      // Unset useful → linked via PATCH (bypasses terminal state enforcement)
+      await this.dataService.updateHarvestCandidate(candidateId, { status: 'linked' });
     } catch (err: any) {
       console.error('Failed to unmark candidate:', err);
       this.toastService.show('Failed to remove candidate from analysis', 'error');
       return;
     }
+
+    // Remove from the tracked candidate IDs so Refresh won't bring it back
+    this.dataService.agendaAnalysisCandidateIds.update(ids =>
+      ids.filter(id => id !== candidateId)
+    );
+
+    // Delete the agenda item from the DB (best-effort — fires but doesn't block)
+    if (agendaId) {
+      this.dataService.deleteAgendaItem(agendaId, candidateId).catch(err =>
+        console.error('Failed to delete agenda item:', err)
+      );
+    }
+
+    this.toastService.show(`"${tab.candidate.title.slice(0, 40)}${tab.candidate.title.length > 40 ? '…' : ''}" removed from analysis`, 'info');
 
     // Remove the tab from the list
     this.tabs.update(list => {
@@ -280,8 +350,6 @@ export class AnalysisViewComponent {
           c.id === candidate.id ? { ...c, status } : c
         ),
       })));
-      // If rejected, also remove from the "useful" filter so it won't appear on reload
-      // (We don't reload — let the user see the status change inline.)
     } catch (err: any) {
       console.error('Failed to update candidate status:', err);
     } finally {
@@ -346,6 +414,33 @@ export class AnalysisViewComponent {
     return this.togglingCompletedId() === id;
   }
 
+  // ── Finalize Agenda ──────────────────────────────────────────
+
+  finalizing = signal(false);
+
+  async finalizeAgenda() {
+    const agendaId = this.dataService.agendaAnalysisData()?.id;
+    if (!agendaId) {
+      this.toastService.show('No agenda data loaded', 'error');
+      return;
+    }
+    this.finalizing.set(true);
+    try {
+      const result = await this.dataService.finalizeAgenda(agendaId);
+      if (result?.ok) {
+        this.toastService.show(`Specification created (${result.spec_id.slice(0, 8)}…)`, 'success');
+        this.dataService.viewMode.set('specifications');
+      } else {
+        this.toastService.show('Failed to finalize agenda — server did not return OK.', 'error');
+      }
+    } catch (err: any) {
+      console.error('Failed to finalize agenda:', err);
+      this.toastService.show(err.message || 'Failed to finalize agenda', 'error');
+    } finally {
+      this.finalizing.set(false);
+    }
+  }
+
   // ── New Agenda Dialog ──────────────────────────────────────────
 
   showNewAgendaDialog = signal(false);
@@ -357,7 +452,7 @@ export class AnalysisViewComponent {
     this.showNewAgendaDialog.set(true);
     this.newAgendaTitle.set('');
     this.createAgendaError.set(null);
-    setTimeout(() => document.getElementById('agenda-title')?.focus(), 100);
+    setTimeout(() => document.getElementById('agenda-analysis-agenda-title')?.focus(), 100);
   }
 
   cancelNewAgenda() {

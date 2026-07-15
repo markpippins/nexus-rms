@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ToastService } from '../services/toast.service';
 import { formatDate, getStatusColor, createHierarchyLabel, getCohesionColor, getCohesionBg } from '../app/utils/view-helpers';
 
 @Component({
@@ -13,6 +14,7 @@ import { formatDate, getStatusColor, createHierarchyLabel, getCohesionColor, get
 })
 export class AgendasViewComponent {
   dataService = inject(DataService);
+  toastService = inject(ToastService);
 
   agendas = signal<any[]>([]);
   count = signal(0);
@@ -25,14 +27,11 @@ export class AgendasViewComponent {
   // Expand/collapse
   expandedAgendaIds = signal<Set<string>>(new Set());
 
-  // Detail view state
-  selectedAgendaId = signal<string | null>(null);
-  selectedAgendaData = signal<any | null>(null);
-
-  selectedAgenda = computed(() => this.selectedAgendaData());
-
   // Retry trigger
   retryTrigger = signal(0);
+
+  /** Whether we are currently processing an agenda click (clear + mark + navigate). */
+  openingAgenda = signal(false);
 
   private readonly STATUS_COLORS: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
@@ -111,21 +110,144 @@ export class AgendasViewComponent {
     });
   }
 
+  /**
+   * When an agenda card is clicked:
+   * 1. Fetch the full agenda (to get item source_ids)
+   * 2. Clear the "useful" flag from all candidates
+   * 3. Mark the agenda's candidate items as "useful"
+   * 4. Navigate to the Agenda Analysis view
+   */
   async selectAgenda(agenda: any) {
-    const newId = this.selectedAgendaId() === agenda.id ? null : agenda.id;
-    this.selectedAgendaId.set(newId);
-    if (newId) {
-      this.selectedAgendaData.set(agenda);
-      const full = await this.dataService.getAgenda(agenda.id);
-      if (full) this.selectedAgendaData.set(full);
-    } else {
-      this.selectedAgendaData.set(null);
-    }
-  }
+    if (this.openingAgenda()) return;
+    this.openingAgenda.set(true);
 
-  closeDetail() {
-    this.selectedAgendaId.set(null);
-    this.selectedAgendaData.set(null);
+    try {
+      // 1. Get full agenda with items, resolve candidate IDs from both direct
+      //    harvest_candidate items AND intent_record items that link to candidates.
+      const full = await this.dataService.getAgenda(agenda.id);
+      const items = full?.items || [];
+
+      // Direct harvest_candidate items
+      const directCandidateIds = items
+        .filter((item: any) => item.source_type === 'harvest_candidate')
+        .map((item: any) => item.source_id)
+        .filter(Boolean);
+
+      // Intent record items — fetch each and extract its candidate_id (with source_ref fallback)
+      const intentRecordItems = items.filter((item: any) => item.source_type === 'intent_record');
+      const intentCandidateIds: string[] = [];
+      let unresolvableIntentRecords = 0;
+      if (intentRecordItems.length > 0) {
+        const intentResults = await Promise.allSettled(
+          intentRecordItems.map((item: any) => this.dataService.getIntentRecord(item.source_id))
+        );
+        for (const result of intentResults) {
+          if (result.status === 'fulfilled' && result.value) {
+            // Prefer candidate_id, fall back to source_ref (both point to the same harvest candidate)
+            const cid = result.value.candidate_id || result.value.source_ref;
+            if (cid) {
+              intentCandidateIds.push(cid);
+            } else {
+              unresolvableIntentRecords++;
+            }
+          } else {
+            unresolvableIntentRecords++;
+          }
+        }
+      }
+
+      // Assessment items — can't resolve to candidates, track for warning
+      const assessmentCount = items.filter((item: any) => item.source_type === 'assessment').length;
+
+      const agendaCandidateIds = new Set<string>([...directCandidateIds, ...intentCandidateIds]);
+
+      if (agendaCandidateIds.size === 0) {
+        // If there are assessment items, still navigate so the user can see them
+        if (assessmentCount > 0) {
+          this.dataService.agendaAnalysisCandidateIds.set([]);
+          this.dataService.agendaAnalysisData.set(full || agenda);
+          this.dataService.viewMode.set('agenda-analysis');
+          this.toastService.show(
+            `No harvest candidates found, but ${assessmentCount} assessment${assessmentCount !== 1 ? 's' : ''} available.`,
+            'info'
+          );
+          return;
+        }
+        const parts: string[] = [];
+        if (items.length > 0) parts.push(`${items.length} total items`);
+        if (intentRecordItems.length > 0) parts.push(`${intentRecordItems.length} intent records`);
+        if (unresolvableIntentRecords > 0) parts.push(`${unresolvableIntentRecords} unresolvable intent records`);
+        this.toastService.show(
+          'No harvest candidates found' + (parts.length > 0 ? ' — ' + parts.join(', ') : '') + '.',
+          'info'
+        );
+        return;
+      }
+
+      // 2. Clear existing "useful" flags via direct PATCH (bypasses terminal state restrictions)
+      let previouslyUsefulIds: string[] = [];
+      try {
+        const data = await this.dataService.listHarvestCandidates({ limit: 500 });
+        const usefulOnes = (data.candidates || []).filter((c: any) => c.status === 'useful');
+        previouslyUsefulIds = usefulOnes.map((c: any) => c.id);
+        for (const c of usefulOnes) {
+          await this.dataService.updateHarvestCandidate(c.id, { status: 'linked' });
+        }
+      } catch (err: any) {
+        console.error('Failed to clear existing useful flags:', err);
+      }
+
+      // 3. Mark the agenda's candidates as useful (direct PATCH, bypasses terminal state)
+      let promotedCount = 0;
+      const promotionErrors: string[] = [];
+      for (const candidateId of agendaCandidateIds) {
+        try {
+          await this.dataService.updateHarvestCandidate(candidateId, { status: 'useful' });
+          promotedCount++;
+        } catch (err: any) {
+          console.error(`Failed to mark candidate ${candidateId} as useful:`, err);
+          promotionErrors.push(candidateId);
+        }
+      }
+
+      if (promotedCount === 0) {
+        // Restore previously useful candidates since we have nothing new to show
+        if (previouslyUsefulIds.length > 0) {
+          let restoredCount = 0;
+          for (const id of previouslyUsefulIds) {
+            try {
+              await this.dataService.updateHarvestCandidate(id, { status: 'useful' });
+              restoredCount++;
+            } catch (err: any) {
+              console.error(`Failed to restore candidate ${id}:`, err);
+            }
+          }
+          if (restoredCount > 0) {
+            this.toastService.show(
+              `No agenda candidates loaded — restored ${restoredCount} previously useful candidate${restoredCount !== 1 ? 's' : ''}.`,
+              'info'
+            );
+          }
+        }
+        this.toastService.show('Failed to load any candidates for this agenda.', 'error');
+        return;
+      }
+
+      this.toastService.show(
+        `Loaded ${promotedCount} candidate${promotedCount !== 1 ? 's' : ''} from "${(full?.title || agenda.title || 'Untitled Agenda').slice(0, 40)}"`,
+        'success'
+      );
+
+      // 4. Pass candidate IDs and agenda data to the agenda analysis view and navigate
+      this.dataService.agendaAnalysisCandidateIds.set([...agendaCandidateIds]);
+      this.dataService.agendaAnalysisData.set(full || agenda);
+      this.dataService.viewMode.set('agenda-analysis');
+    } catch (err: any) {
+      console.error('Failed to open agenda:', err);
+      this.toastService.show('Failed to open agenda: ' + (err.message || 'unknown error'), 'error');
+    } finally {
+      this.openingAgenda.set(false);
+    }
   }
 
   toggleExpand(agendaId: string) {

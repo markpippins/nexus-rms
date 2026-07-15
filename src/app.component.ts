@@ -10,19 +10,20 @@ import { AnalysisViewComponent } from './components/analysis-view.component';
 import { CandidatesViewComponent } from './components/candidates-view.component';
 import { IntentRecordsViewComponent } from './components/intent-records-view.component';
 import { AgendasViewComponent } from './components/agendas-view.component';
+import { AgendaAnalysisViewComponent } from './components/agenda-analysis-view.component';
 import { SpecificationsViewComponent } from './components/specifications-view.component';
 import { ImplementationPlansViewComponent } from './components/implementation-plans-view.component';
 import { WorkRequestsViewComponent } from './components/work-requests-view.component';
 import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
-import { formatDate, lookupHierarchyName } from './app/utils/view-helpers';
+import { formatDate, lookupHierarchyName, getBlockTypeBadgeClasses } from './app/utils/view-helpers';
 import { UiEventBusService } from './app/services/ui-event-bus.service';
 import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, ToastComponent],
+  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -34,9 +35,6 @@ export class AppComponent {
 
   sidebarWidth = signal<number>(288); // Default w-72
   isResizing = signal<boolean>(false);
-
-  // ── Service Health Detail (expandable in banner) ─────────────
-  showServiceHealthDetail = signal(false);
 
   // ── Right Slide Panel (Backlog #4) ────────────────────────────
   showRightPanel = signal(false);
@@ -57,7 +55,123 @@ export class AppComponent {
   });
 
   closeCandidateDetail() {
+    this.closeTranscript();
     this.dataService.selectedHarvestCandidateId.set(null);
+  }
+
+  // ── Transcript viewer state (inline, not modal) ────────────
+  transcriptExpanded = signal(false);
+  transcriptLoading = signal(false);
+  transcriptTitle = signal('');
+  transcriptUnits = signal<any[]>([]);
+  transcriptStats = signal<any>(null);
+  transcriptCandidates = signal<any[]>([]);
+  private transcriptHarvestId = signal<string | null>(null);
+  private pendingAutoExpandHarvestId = signal<string | null>(null);
+
+  // ── Transcript find-in-file state ────────────────────────────
+  transcriptSearchQuery = signal('');
+  transcriptShowSearch = signal(false);
+  transcriptSearchMatchIndex = signal(0);
+
+  transcriptTotalMatches = computed(() => {
+    const query = this.transcriptSearchQuery().toLowerCase().trim();
+    if (!query) return 0;
+    let count = 0;
+    for (const unit of this.transcriptUnits()) {
+      for (const block of unit.blocks) {
+        const text = block.content || (block.items || []).join(' ') || '';
+        const lower = text.toLowerCase();
+        let idx = -1;
+        while ((idx = lower.indexOf(query, idx + 1)) !== -1) count++;
+      }
+    }
+    return count;
+  });
+
+  readonly getBlockTypeBadgeClasses = getBlockTypeBadgeClasses;
+
+  toggleTranscriptSearch() {
+    this.transcriptShowSearch.update(v => !v);
+    if (!this.transcriptShowSearch()) {
+      this.transcriptSearchQuery.set('');
+      this.transcriptSearchMatchIndex.set(0);
+    } else {
+      setTimeout(() => document.getElementById('panel-transcript-search-input')?.focus(), 0);
+    }
+  }
+
+  transcriptNextMatch() {
+    const total = this.transcriptTotalMatches();
+    if (total === 0) return;
+    this.transcriptSearchMatchIndex.update(i => (i + 1) % total);
+    this.scrollToTranscriptMatch();
+  }
+
+  transcriptPrevMatch() {
+    const total = this.transcriptTotalMatches();
+    if (total === 0) return;
+    this.transcriptSearchMatchIndex.update(i => (i - 1 + total) % total);
+    this.scrollToTranscriptMatch();
+  }
+
+  private scrollToTranscriptMatch() {
+    const idx = this.transcriptSearchMatchIndex();
+    setTimeout(() => {
+      const marks = document.querySelectorAll('#panel-transcript-content .transcript-highlight');
+      if (marks.length === 0) return;
+      marks.forEach(m => m.removeAttribute('data-current'));
+      if (idx < marks.length) {
+        marks[idx].setAttribute('data-current', '');
+        marks[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
+  }
+
+  highlightText(text: string | null | undefined): string {
+    if (!text) return '';
+    const query = this.transcriptSearchQuery();
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (!query) return escaped;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return escaped.replace(regex, '<mark class="transcript-highlight">$1</mark>');
+  }
+
+  async toggleTranscript(harvestId: string, title: string) {
+    // If already expanded for this harvest, collapse
+    if (this.transcriptExpanded() && this.transcriptHarvestId() === harvestId) {
+      this.closeTranscript();
+      return;
+    }
+    this.transcriptSearchQuery.set('');
+    this.transcriptShowSearch.set(false);
+    this.transcriptSearchMatchIndex.set(0);
+    this.transcriptExpanded.set(true);
+    this.transcriptHarvestId.set(harvestId);
+    this.transcriptTitle.set(title);
+    this.transcriptLoading.set(true);
+    try {
+      const data = await this.dataService.getHarvestTranscript(harvestId);
+      this.transcriptUnits.set(data.units || []);
+      this.transcriptStats.set(data.stats);
+      this.transcriptCandidates.set(data.candidates || []);
+      if (data.title) this.transcriptTitle.set(data.title);
+    } catch (err: any) {
+      console.error('Failed to load transcript:', err);
+    } finally {
+      this.transcriptLoading.set(false);
+    }
+  }
+
+  closeTranscript() {
+    this.transcriptExpanded.set(false);
+    this.transcriptHarvestId.set(null);
+    this.transcriptUnits.set([]);
+    this.transcriptCandidates.set([]);
+    this.transcriptStats.set(null);
+    this.transcriptSearchQuery.set('');
+    this.transcriptShowSearch.set(false);
+    this.transcriptSearchMatchIndex.set(0);
   }
 
   selectCandidateInPanel(candidate: HarvestCandidate) {
@@ -170,6 +284,7 @@ export class AppComponent {
       candidates: 'Candidates',
       intents: 'Intent Records',
       agendas: 'Agendas',
+      'agenda-analysis': 'Agenda Analysis',
       specifications: 'Specifications',
       plans: 'Implementation Plans',
       'work-requests': 'Work Requests',
@@ -223,7 +338,8 @@ export class AppComponent {
       this.dataService.selectedSystemId();
       this.dataService.selectedSubsystemId();
       this.dataService.selectedFeatureId();
-      // Clear the detail selection when navigating hierarchy
+      // Clear the detail selection and close transcript when navigating hierarchy
+      this.closeTranscript();
       this.dataService.selectedHarvestCandidateId.set(null);
     });
 
@@ -234,6 +350,34 @@ export class AppComponent {
         this.showRightPanel.set(true);
       }
     });
+
+    // Auto-expand transcript when triggered from sidebar transcript button
+    effect(() => {
+      if (this.dataService.autoExpandTranscript()) {
+        this.dataService.autoExpandTranscript.set(false); // reset
+        const candidate = this.selectedCandidate();
+        if (candidate?.harvest_id) {
+          this.toggleTranscript(candidate.harvest_id, candidate.harvest_source || candidate.title || '');
+        } else {
+          // Candidates not loaded yet — store the intent, will retry when loaded
+          this.pendingAutoExpandHarvestId.set('pending');
+        }
+      }
+    });
+
+    // Retry auto-expand when candidates finish loading
+    effect(() => {
+      if (this.pendingAutoExpandHarvestId()) {
+        this.pendingAutoExpandHarvestId.set(null);
+        const candidate = this.selectedCandidate();
+        if (candidate?.harvest_id) {
+          // Small delay to ensure DOM is ready
+          setTimeout(() => {
+            this.toggleTranscript(candidate.harvest_id, candidate.harvest_source || candidate.title || '');
+          }, 50);
+        }
+      }
+    }, { allowSignalWrites: true });
 
     // Fetch candidates for right panel when selection or panel visibility changes
     effect(() => {
@@ -278,8 +422,6 @@ export class AppComponent {
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscape(event: KeyboardEvent): void {
-    // Prevent default only if we actually have a selection to clear —
-    // otherwise let Escape pass through for other handlers (modals, etc.)
     if (this.dataService.selectedSystemId() || this.dataService.selectedSubsystemId() || this.dataService.selectedFeatureId()) {
       event.preventDefault();
       this.navigateToBreadcrumb({ label: 'Nebula', icon: 'root', level: 'root' });
@@ -330,7 +472,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'specifications' | 'plans' | 'work-requests'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();

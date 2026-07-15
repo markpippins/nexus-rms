@@ -306,7 +306,8 @@
                 } @else {
                   <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
                     @for (candidate of filteredCandidates(); track candidate.id) {
-                      <div class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                      <div class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                           (dblclick)="openTranscript(harvest)">
                         <div class="flex items-start justify-between gap-3">
                           <div class="flex items-start gap-2.5 flex-1 min-w-0">
                             <input
@@ -444,7 +445,15 @@
 <!-- ── Transcript Modal ──────────────────────────────────────── -->
 @if (transcriptOpen()) {
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" (click)="closeTranscript()">
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] flex flex-col m-4" (click)="$event.stopPropagation()">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full flex flex-col transition-all duration-300"
+       (click)="$event.stopPropagation()"
+       [class.max-w-3xl]="!transcriptMaximized()"
+       [class.max-h-[90vh]]="!transcriptMaximized()"
+       [class.m-4]="!transcriptMaximized()"
+       [class.fixed]="transcriptMaximized()"
+       [class.inset-4]="transcriptMaximized()"
+       [class.max-w-none]="transcriptMaximized()"
+       [class.max-h-none]="transcriptMaximized()">
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
       <div class="flex items-center gap-2 min-w-0">
@@ -533,6 +542,25 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
           </svg>
+        </button>
+        <!-- Maximize toggle -->
+        <button
+          (click)="toggleTranscriptMaximize()"
+          class="p-1.5 rounded-lg transition-colors"
+          [class]="transcriptMaximized()
+            ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30'
+            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+          [title]="transcriptMaximized() ? 'Restore' : 'Maximize'"
+        >
+          @if (transcriptMaximized()) {
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+            </svg>
+          } @else {
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>
+            </svg>
+          }
         </button>
         <button (click)="closeTranscript()" class="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

@@ -1,96 +1,7 @@
 <div class="flex flex-col h-screen w-screen overflow-hidden dark:bg-gray-900">
   <app-toast></app-toast>
 
-  <!-- ═══════ Service Health Banner ═══════ -->
-  @if (dataService.serviceHealthSummary().down > 0 || dataService.serviceHealthSummary().checking > 0) {
-    <div class="flex-shrink-0 z-50">
-      <div
-        class="flex items-center justify-between px-4 py-2 text-sm shadow-md cursor-pointer transition-colors"
-        [class]="dataService.serviceHealthSummary().down > 0 ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'"
-        (click)="showServiceHealthDetail = !showServiceHealthDetail"
-      >
-        <div class="flex items-center gap-2">
-          @if (dataService.serviceHealthSummary().down > 0) {
-            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-            </svg>
-          } @else {
-            <svg class="w-4 h-4 flex-shrink-0 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-          }
-          <span class="font-medium">
-            @if (dataService.serviceHealthSummary().down > 0) {
-              {{ dataService.serviceHealthSummary().down }} service{{ dataService.serviceHealthSummary().down > 1 ? 's' : '' }} unreachable
-            } @else {
-              Checking services...
-            }
-          </span>
-          <span class="text-[11px] opacity-80">
-            {{ dataService.serviceHealthSummary().healthy }}/{{ dataService.serviceHealthSummary().total }} healthy
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <svg class="w-3.5 h-3.5 transition-transform" [class.rotate-180]="showServiceHealthDetail" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </div>
-      </div>
 
-      <!-- Expandable detail view -->
-      @if (showServiceHealthDetail) {
-        <div class="bg-red-700 dark:bg-red-900 border-t border-red-500/50 px-4 py-3 space-y-1.5">
-          @for (entry of dataService.serviceHealth() | keyvalue; track entry.key) {
-            <div class="flex items-center justify-between text-xs">
-              <div class="flex items-center gap-2">
-                @if (entry.value.status === 'healthy') {
-                  <svg class="w-3 h-3 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                } @else if (entry.value.status === 'down') {
-                  <svg class="w-3 h-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                } @else {
-                  <svg class="w-3 h-3 text-amber-300 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                }
-                <span class="text-white/90 font-medium">{{ entry.value.status === 'healthy' ? dataService.SERVICE_HEALTH[entry.key].name : entry.key }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-white/60 font-mono">:{{ dataService.SERVICE_HEALTH[entry.key].port }}</span>
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-medium"
-                  [class]="entry.value.status === 'healthy' 
-                    ? 'bg-green-800/50 text-green-200' 
-                    : entry.value.status === 'down' 
-                    ? 'bg-red-800/50 text-red-200' 
-                    : 'bg-amber-800/50 text-amber-200'">
-                  {{ entry.value.status }}
-                </span>
-                @if (entry.value.detail && entry.value.detail !== 'ok') {
-                  <span class="text-white/50 text-[10px] max-w-[200px] truncate" [title]="entry.value.detail">{{ entry.value.detail }}</span>
-                }
-              </div>
-            </div>
-          }
-          <div class="pt-2 flex justify-end">
-            <button
-              (click)="dataService.checkBackendHealth(); $event.stopPropagation()"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-              Re-check all services
-            </button>
-          </div>
-        </div>
-      }
-    </div>
-  }
 
   <!-- ═══════ Top Row: Branding Box + Splitter + Address Bar ═══════ -->
   <div class="flex flex-shrink-0 border-b border-gray-200 dark:border-gray-700 z-20">
@@ -157,31 +68,11 @@
     class="flex-shrink-0 h-full"
     [style.width.px]="sidebarWidth()"
   >
-    @if (dataService.serviceHealthSummary().down > 0) {
-      <!-- Backend down placeholder for sidebar -->
-      <div class="h-full flex flex-col items-center justify-center px-4 text-center bg-gray-50/80 dark:bg-gray-900/50">
-        <svg class="w-8 h-8 text-red-400 dark:text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0zM12 9v2m0 4h.01"/>
-        </svg>
-        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Backend Unavailable</p>
-        <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-4">Services are unreachable — data cannot be loaded.</p>
-        <button
-          (click)="dataService.checkBackendHealth()"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-medium bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
-        >
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          Retry
-        </button>
-      </div>
-    } @else {
-      @if (dataService.viewMode() === 'audit') {
+  @if (dataService.viewMode() === 'audit') {
         <app-audit-tree></app-audit-tree>
       } @else {
         <app-hierarchy-nav></app-hierarchy-nav>
       }
-    }
   </aside>
 
   <!-- Splitter -->
@@ -649,47 +540,7 @@
     <div class="flex-1 flex min-h-0 overflow-hidden">
       <!-- Main Content -->
       <main class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        @if (dataService.serviceHealthSummary().down > 0) {
-          <!-- Backend down placeholder for main content -->
-          <div class="flex-1 flex flex-col items-center justify-center px-8 text-center bg-gray-50/50 dark:bg-gray-900/30">
-            <!-- Warning graphic -->
-            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-              <svg class="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">Backend Unavailable</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-6">
-              One or more backend services are unreachable. The system tree, requirements, harvests, and other data-driven views are unavailable until services are restored.
-            </p>
-            <div class="flex flex-col items-center gap-3">
-              <button
-                (click)="dataService.checkBackendHealth()"
-                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Retry Connection
-              </button>
-              <div class="flex items-center gap-4">
-                @for (entry of dataService.serviceHealth() | keyvalue; track entry.key) {
-                  @if (entry.value.status === 'down') {
-                    <div class="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                      <span class="font-medium">{{ dataService.SERVICE_HEALTH[entry.key].name || entry.key }}</span>
-                    </div>
-                  }
-                }
-              </div>
-              <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                The services will automatically retry every 30 seconds. You can also click the banner above for details.
-              </p>
-            </div>
-          </div>
-        } @else {
+
           @if (dataService.viewMode() === 'audit') {
             <app-audit-viewer></app-audit-viewer>
           } @else if (dataService.viewMode() === 'harvests') {
@@ -702,6 +553,8 @@
             <app-intent-records-view></app-intent-records-view>
           } @else if (dataService.viewMode() === 'agendas') {
             <app-agendas-view></app-agendas-view>
+          } @else if (dataService.viewMode() === 'agenda-analysis') {
+            <app-agenda-analysis-view></app-agenda-analysis-view>
           } @else if (dataService.viewMode() === 'specifications') {
             <app-specifications-view></app-specifications-view>
           } @else if (dataService.viewMode() === 'plans') {
@@ -711,7 +564,6 @@
           } @else {
             <app-kanban-board></app-kanban-board>
           }
-        }
       </main>
 
       <!-- ═══════ Right Slide Panel (Backlog #4) ═══════ -->
@@ -817,58 +669,137 @@
 
                   <!-- Source Info -->
                   <div class="border-t border-gray-100 dark:border-gray-700 pt-3">
-                    <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Source</h4>
-                    <div class="space-y-1">
-                      <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-gray-400 dark:text-gray-500">Source</span>
-                        <span class="text-gray-600 dark:text-gray-300 font-mono truncate max-w-[200px]" title="{{ selectedCandidate()!.harvest_source || '' }}">{{ selectedCandidate()!.harvest_source || '—' }}</span>
-                      </div>
-                      <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-gray-400 dark:text-gray-500">Created</span>
-                        <span class="text-gray-600 dark:text-gray-300">{{ formatDate(selectedCandidate()!.created_at) }}</span>
-                      </div>
-                      <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-gray-400 dark:text-gray-500">Updated</span>
-                        <span class="text-gray-600 dark:text-gray-300">{{ formatDate(selectedCandidate()!.updated_at) }}</span>
-                      </div>
+                    <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 flex-wrap">
+                      <span class="text-gray-500 dark:text-gray-400 font-mono truncate max-w-[180px]" [title]="selectedCandidate()!.harvest_source || ''">{{ selectedCandidate()!.harvest_source || '—' }}</span>
+                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
+                      <span>Created {{ formatDate(selectedCandidate()!.created_at) }}</span>
+                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
+                      <span>Updated {{ formatDate(selectedCandidate()!.updated_at) }}</span>
                       @if (selectedCandidate()!.valid_from) {
-                        <div class="flex items-center justify-between text-[11px]">
-                          <span class="text-gray-400 dark:text-gray-500">Valid From</span>
-                          <span class="text-gray-600 dark:text-gray-300">{{ formatDate(selectedCandidate()!.valid_from) }}</span>
-                        </div>
+                        <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
+                        <span>From {{ formatDate(selectedCandidate()!.valid_from) }}</span>
                       }
                       @if (selectedCandidate()!.valid_until) {
-                        <div class="flex items-center justify-between text-[11px]">
-                          <span class="text-gray-400 dark:text-gray-500">Valid Until</span>
-                          <span class="text-gray-600 dark:text-gray-300">{{ formatDate(selectedCandidate()!.valid_until) }}</span>
+                        <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
+                        <span>Until {{ formatDate(selectedCandidate()!.valid_until) }}</span>
+                      }
+                    </div>
+                    <!-- View Transcript -->
+                    @if (selectedCandidate()!.harvest_id) {
+                      <button
+                        (click)="toggleTranscript(selectedCandidate()!.harvest_id, selectedCandidate()!.harvest_source || selectedCandidate()!.title || '')"
+                        class="mt-1.5 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg transition-all"
+                        [class]="transcriptExpanded()
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700'
+                          : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 dark:hover:bg-blue-900/30 dark:hover:border-blue-700'"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        {{ transcriptExpanded() ? 'Hide Transcript' : 'View Transcript' }}
+                      </button>
+                    }
+                  </div>
+
+                  <!-- ═══ Inline Transcript ═══ -->
+                  @if (transcriptExpanded()) {
+                    <div class="border-t border-gray-100 dark:border-gray-700 pt-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 min-w-0">
+                          <span class="font-mono truncate">{{ transcriptTitle() }}</span>
+                          @if (transcriptStats()) {
+                            <span>· {{ transcriptUnits().length }} turns · {{ transcriptStats().total_blocks }} blocks</span>
+                          }
+                        </div>
+                        <div class="flex items-center gap-1">
+                          @if (transcriptShowSearch()) {
+                            <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-md pl-1.5 pr-1 py-0.5 border border-gray-200 dark:border-gray-600">
+                              <input
+                                id="panel-transcript-search-input"
+                                type="text"
+                                [(ngModel)]="transcriptSearchQuery"
+                                (keydown.enter)="transcriptNextMatch()"
+                                (keydown.shift.enter)="transcriptPrevMatch()"
+                                placeholder="Find…"
+                                class="w-16 text-[10px] bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 px-1 py-0"
+                              >
+                              @if (transcriptSearchQuery()) {
+                                <span class="text-[9px] text-gray-500 font-medium tabular-nums whitespace-nowrap">{{ transcriptTotalMatches() > 0 ? transcriptSearchMatchIndex() + 1 + '/' + transcriptTotalMatches() : '0/0' }}</span>
+                              }
+                              <button (click)="transcriptShowSearch.set(false); transcriptSearchQuery.set(''); transcriptSearchMatchIndex.set(0)" class="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Close">
+                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
+                            </div>
+                          } @else {
+                            <button (click)="toggleTranscriptSearch()" class="p-0.5 rounded text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Find (Ctrl+F)">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                      @if (transcriptLoading()) {
+                        <div class="flex items-center justify-center py-6">
+                          <svg class="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        </div>
+                      } @else {
+                        <div id="panel-transcript-content" class="space-y-2 max-h-[300px] overflow-y-auto pr-0.5">
+                          @for (unit of transcriptUnits(); track unit.turn_index) {
+                            <div class="rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+                              <div class="px-2.5 py-1 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-[10px] font-semibold text-gray-600 dark:text-gray-300">{{ unit.heading || ('Turn ' + (unit.turn_index + 1)) }}</span>
+                              </div>
+                              <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                @for (block of unit.blocks; track block.index) {
+                                  <div class="px-2.5 py-1.5">
+                                    <div class="flex items-center gap-1 mb-0.5">
+                                      <span class="text-[8px] font-mono text-gray-400 dark:text-gray-500">#{{ block.index }}</span>
+                                      <span class="text-[8px] px-1 py-0.5 rounded font-medium uppercase tracking-wider" [class]="getBlockTypeBadgeClasses(block.type)">{{ block.type }}</span>
+                                    </div>
+                                    @if (block.type === 'separator') {
+                                      <div class="h-px bg-gray-200 dark:bg-gray-700 my-0.5"></div>
+                                    } @else if (block.type === 'code' && block.content) {
+                                      <div class="bg-gray-900 dark:bg-black rounded overflow-hidden"><pre class="p-2 text-[10px] text-gray-200 font-mono overflow-x-auto whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre></div>
+                                    } @else if (block.type === 'list' && block.items) {
+                                      <ul class="list-disc list-inside space-y-0.5">
+                                        @for (item of block.items; track $index) {
+                                          <li class="text-[11px] text-gray-600 dark:text-gray-300" [innerHTML]="highlightText(item)"></li>
+                                        }
+                                      </ul>
+                                    } @else if (block.type === 'quote' && block.content) {
+                                      <blockquote class="border-l-2 border-amber-400 pl-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300 italic" [innerHTML]="highlightText(block.content)"></blockquote>
+                                    } @else if (block.type === 'diagram' && block.content) {
+                                      <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded p-2"><pre class="text-[10px] text-indigo-700 dark:text-indigo-300 font-mono whitespace-pre-wrap" [innerHTML]="highlightText(block.content)"></pre></div>
+                                    } @else if (block.content) {
+                                      <p class="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed" [innerHTML]="highlightText(block.content)"></p>
+                                    } @else {
+                                      <span class="text-[10px] text-gray-400 italic">empty {{ block.type }}</span>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                          }
                         </div>
                       }
                     </div>
-                  </div>
+                  }
 
                   <!-- Hierarchy Linkage -->
                   <div class="border-t border-gray-100 dark:border-gray-700 pt-3">
-                    <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Linked To</h4>
                     @if (selectedCandidate()!.system_id) {
-                      <div class="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-300 flex-wrap">
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
-                          {{ getHierarchyLabel(selectedCandidate()!.system_id, 'system') }}
-                        </span>
+                      <div class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 flex-wrap">
+                        <span class="font-medium text-blue-600 dark:text-blue-400">{{ getHierarchyLabel(selectedCandidate()!.system_id, 'system') }}</span>
                         @if (selectedCandidate()!.subsystem_id) {
-                          <svg class="w-2.5 h-2.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400">
-                            {{ getHierarchyLabel(selectedCandidate()!.subsystem_id, 'subsystem') }}
-                          </span>
+                          <span class="text-gray-300 dark:text-gray-600">·</span>
+                          <span class="font-medium text-purple-600 dark:text-purple-400">{{ getHierarchyLabel(selectedCandidate()!.subsystem_id, 'subsystem') }}</span>
                         }
                         @if (selectedCandidate()!.feature_id) {
-                          <svg class="w-2.5 h-2.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
-                            {{ getHierarchyLabel(selectedCandidate()!.feature_id, 'feature') }}
-                          </span>
+                          <span class="text-gray-300 dark:text-gray-600">·</span>
+                          <span class="font-medium text-emerald-600 dark:text-emerald-400">{{ getHierarchyLabel(selectedCandidate()!.feature_id, 'feature') }}</span>
                         }
                       </div>
                     } @else {
-                      <p class="text-[11px] text-gray-400 dark:text-gray-500 italic">Not linked to any hierarchy item.</p>
+                      <p class="text-[10px] text-gray-400 dark:text-gray-500 italic">Not linked to any hierarchy item.</p>
                     }
                   </div>
 
