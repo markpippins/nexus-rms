@@ -14,6 +14,7 @@ import { AgendaAnalysisViewComponent } from './components/agenda-analysis-view.c
 import { SpecificationsViewComponent } from './components/specifications-view.component';
 import { ImplementationPlansViewComponent } from './components/implementation-plans-view.component';
 import { WorkRequestsViewComponent } from './components/work-requests-view.component';
+import { CpfFunnelViewComponent } from './components/cpf-funnel-view.component';
 import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
 import { formatDate, lookupHierarchyName, getBlockTypeBadgeClasses } from './app/utils/view-helpers';
@@ -22,8 +23,7 @@ import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
-  imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, ToastComponent],
+  standalone: true,    imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, CpfFunnelViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -288,6 +288,7 @@ export class AppComponent {
       specifications: 'Specifications',
       plans: 'Implementation Plans',
       'work-requests': 'Work Requests',
+      'cpf-funnel': 'CPF Funnel',
     };
     return labels[this.dataService.viewMode()] || this.dataService.viewMode();
   });
@@ -472,7 +473,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();

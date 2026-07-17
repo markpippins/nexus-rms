@@ -1,0 +1,339 @@
+<div class="flex-1 flex flex-col min-h-0 bg-white dark:bg-gray-900">
+  <!-- Header -->
+  <div class="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 px-4 py-2">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 min-w-0">
+        <h2 class="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">CPF Funnel</h2>
+        @if (hierarchySystemName(); as sysName) {
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 font-medium truncate max-w-[200px]">
+            {{ sysName }}
+            @if (hierarchySubsystemName(); as subName) {
+              <span class="text-blue-400 dark:text-blue-500"> / {{ subName }}</span>
+            }
+          </span>
+        }
+        @if (counts(); as c) {
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 font-medium whitespace-nowrap">{{ c.total }} candidates</span>
+        }
+      </div>
+      <div class="flex-1"></div>
+      <!-- Share link -->
+      <button
+        (click)="shareLink()"
+        class="p-1 rounded text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative"
+        [title]="linkCopied() ? 'Copied!' : 'Copy share link'"
+      >
+        @if (linkCopied()) {
+          <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        } @else {
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+          </svg>
+        }
+      </button>
+
+      <!-- Refresh -->
+      <button
+        (click)="loadData()"
+        [disabled]="loading()"
+        class="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        title="Refresh CPF data"
+      >
+        <svg class="w-3.5 h-3.5" [class.animate-spin]="loading()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  @if (error(); as err) {
+    <div class="flex-1 flex items-center justify-center p-8">
+      <div class="text-center">
+        <svg class="w-8 h-8 mx-auto text-red-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+        </svg>
+        <p class="text-sm text-red-600 dark:text-red-400 mb-2">Failed to load CPF data</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">{{ err }}</p>
+        <button (click)="loadData()" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
+          Retry
+        </button>
+      </div>
+    </div>
+  } @else if (loading() && candidates().length === 0) {
+    <!-- Loading state -->
+    <div class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <svg class="animate-spin h-6 w-6 mx-auto text-blue-500 mb-3" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Loading candidates…</p>
+      </div>
+    </div>
+  } @else {
+    <!-- Content -->
+    <div class="flex-1 flex flex-col min-h-0 overflow-y-auto">
+      <!-- ═══════ Summary Stats ═══════ -->
+      @if (counts(); as c) {
+        <div class="flex-shrink-0 grid grid-cols-5 gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <div class="text-center">
+            <div class="text-lg font-bold text-gray-800 dark:text-gray-100 tabular-nums">{{ c.total }}</div>
+            <div class="text-[10px] text-gray-400 dark:text-gray-500">Total</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{{ c.ready }}</div>
+            <div class="text-[10px] text-gray-400 dark:text-gray-500">Ready</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-blue-600 dark:text-blue-400 tabular-nums">{{ c.promoted }}</div>
+            <div class="text-[10px] text-gray-400 dark:text-gray-500">Promoted</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ c.near_miss }}</div>
+            <div class="text-[10px] text-gray-400 dark:text-gray-500">Near-miss</div>
+          </div>
+          <div class="text-center">
+            <div class="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">{{ c.low }}</div>
+            <div class="text-[10px] text-gray-400 dark:text-gray-500">Low</div>
+          </div>
+        </div>
+      }
+
+      <!-- ═══════ Funnel Tabs ═══════ -->
+      <div class="flex-shrink-0 flex border-b border-gray-200 dark:border-gray-700 px-4">
+        <button
+          (click)="setTab('ready')"
+          class="px-3 py-2 text-xs font-medium border-b-2 transition-colors"
+          [class]="activeTab() === 'ready'
+            ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500'
+            : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'"
+        >
+          Ready to Promote
+        </button>
+        <button
+          (click)="setTab('promoted')"
+          class="px-3 py-2 text-xs font-medium border-b-2 transition-colors"
+          [class]="activeTab() === 'promoted'
+            ? 'text-blue-600 dark:text-blue-400 border-blue-500'
+            : 'text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'"
+        >
+          Promoted
+        </button>
+      </div>
+
+      <!-- ═══════ Filters Row (Ready tab only) ═══════ -->
+      @if (activeTab() === 'ready') {
+        <div class="flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30">
+          <!-- Threshold slider -->
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">Threshold:</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value="70"
+              (input)="onThresholdChange($event)"
+              class="w-20 h-1.5 rounded-full appearance-none bg-gray-200 dark:bg-gray-600 accent-emerald-500 cursor-pointer"
+            >
+            <span class="text-[10px] font-mono tabular-nums text-gray-600 dark:text-gray-300 w-8 text-right">{{ formatPct(threshold()) }}</span>
+          </div>
+
+          <div class="w-px h-4 bg-gray-200 dark:bg-gray-600"></div>
+
+          <!-- System filter (scoped by hierarchy if selected) -->
+          <select
+            (change)="onSystemFilterChange($event)"
+            class="text-[10px] px-2 py-1 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+            [disabled]="hierarchySystemName() !== null"
+            [title]="hierarchySystemName() ? 'Scoped to ' + hierarchySystemName() : 'Filter by system'"
+          >
+            <option value="">{{ hierarchySystemName() || 'All systems' }}</option>
+            @if (!hierarchySystemName()) {
+              @for (name of systemNames(); track name) {
+                <option [value]="name">{{ name }}</option>
+              }
+            }
+          </select>
+
+          <!-- Status filter (scoped by hierarchy — only statuses present in loaded candidates) -->
+          <select
+            (change)="onStatusFilterChange($event)"
+            class="text-[10px] px-2 py-1 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+          >
+            <option value="">All statuses</option>
+            @for (status of statusOptions(); track status) {
+              <option [value]="status">{{ status.charAt(0).toUpperCase() + status.slice(1) }}</option>
+            }
+          </select>
+
+          <!-- Active filter indicator -->
+          @if (activeFilterCount() > 0) {
+            <button
+              (click)="resetFilters()"
+              class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded text-red-500 hover:text-white hover:bg-red-500 dark:hover:text-white dark:hover:bg-red-600 font-medium transition-colors"
+            >
+              <span>Clear all</span>
+              <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 text-[9px] font-bold">{{ activeFilterCount() }}</span>
+            </button>
+          }
+
+          <div class="flex-1"></div>
+          <span class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
+            Showing {{ candidates().length }} of {{ totalCandidateCount() }}
+          </span>
+        </div>
+      }
+
+      <!-- ═══════ Funnel Visualization (Ready tab) ═══════ -->
+      @if (activeTab() === 'ready') {
+        <div class="flex-shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <div class="flex items-end h-24 gap-1">
+            @for (band of readinessBands; track band.min) {
+              @let count = bandCounts()[band.min] || 0;
+              @let barHeight = getBarWidth(count);
+              <div
+                class="flex-1 flex flex-col items-center justify-end group cursor-pointer transition-all duration-200"
+                [class]="selectedBand() === band.min ? 'scale-y-105' : ''"
+                (click)="selectBand(band.min)"
+                [title]="band.label + ': ' + count + ' candidates'"
+              >
+                <div
+                  class="w-full rounded-t-md transition-all duration-300 group-hover:opacity-80"
+                  [class]="band.color"
+                  [style.height.%]="barHeight"
+                  [style.min-height]="count > 0 ? '4px' : '0'"
+                ></div>
+                <div class="text-[9px] mt-1 font-medium" [class]="band.textColor">{{ count }}</div>
+                <div class="text-[7px] text-gray-400 dark:text-gray-500 mt-0.5">{{ band.label }}</div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- ═══════ Candidate List ═══════ -->
+      <div class="flex-1 overflow-y-auto">
+        @if (filteredCandidates().length === 0) {
+          <div class="flex items-center justify-center py-12">
+            <p class="text-xs text-gray-400 dark:text-gray-500">No candidates match the current filters.</p>
+          </div>
+        }
+
+        <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+          @for (candidate of filteredCandidates(); track candidate.id) {
+            <div class="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              <div class="flex items-start gap-3">
+                <!-- CPF Score badge -->
+                <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold"
+                  [class]="candidate.compilation_readiness >= 0.9
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                    : candidate.compilation_readiness >= 0.7
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : candidate.compilation_readiness >= 0.5
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'"
+                >
+                  {{ formatPct(candidate.compilation_readiness) }}
+                </div>
+
+                <!-- Candidate info -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start gap-2">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{{ candidate.title }}</h3>
+                    @if (candidate.status) {
+                      <span class="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded font-medium"
+                        [class]="candidate.status === 'promoted'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : candidate.status === 'linked'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : candidate.status === 'useful'
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : candidate.status === 'rejected'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'"
+                      >
+                        {{ candidate.status }}
+                      </span>
+                    }
+                  </div>
+
+                  <!-- Meta row -->
+                  <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                    @if (candidate.system_name) {
+                      <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ candidate.system_name }}</span>
+                    }
+                    @if (candidate.subsystem_name) {
+                      <span class="text-[10px] text-gray-400 dark:text-gray-500">/ {{ candidate.subsystem_name }}</span>
+                    }
+                    @if (candidate.dep_count !== undefined && candidate.dep_count !== null) {
+                      <span class="text-[10px] text-gray-400 dark:text-gray-500">· {{ candidate.dep_count }} deps</span>
+                    }
+                    @if (candidate.promotable) {
+                      <span class="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">✓ Promotable</span>
+                    }
+                  </div>
+
+                  <!-- Tags -->
+                  @if (candidate.tags && candidate.tags.length > 0) {
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      @for (tag of candidate.tags; track tag) {
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                          {{ tag }}
+                        </span>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <!-- Promote button (Ready tab only, not already promoted) -->
+                @if (activeTab() === 'ready' && candidate.status !== 'promoted' && candidate.status !== 'rejected') {
+                  <button
+                    (click)="promoteCandidate(candidate.id)"
+                    [disabled]="promotingId() === candidate.id"
+                    class="flex-shrink-0 px-2.5 py-1.5 text-[10px] font-medium rounded-lg transition-all"
+                    [class]="promotingId() === candidate.id
+                      ? 'bg-blue-200 text-blue-500 dark:bg-blue-800 dark:text-blue-300 cursor-wait'
+                      : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30'"
+                  >
+                    @if (promotingId() === candidate.id) {
+                      <span class="flex items-center gap-1">
+                        <svg class="animate-spin h-2.5 w-2.5" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Promoting…
+                      </span>
+                    } @else {
+                      Promote
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Infinite scroll sentinel — IntersectionObserver triggers next page -->
+        @if (!allLoaded() && filteredCandidates().length > 0) {
+          <div #scrollSentinel class="h-4"></div>
+        }
+
+        <!-- Loading spinner when fetching next page -->
+        @if (loadingMore()) {
+          <div class="px-4 py-4 flex justify-center">
+            <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
+              <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              <span>Loading more candidates…</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

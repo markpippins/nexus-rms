@@ -143,17 +143,15 @@
         </svg>
       </button>
       <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1"></div>
-      <!-- Requirements -->
+      <!-- CPF Funnel -->
       <button
-        (click)="setViewMode('board')"
-        [class]="dataService.viewMode() === 'board' || dataService.viewMode() === 'table'
-          ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
-          : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+        (click)="setViewMode('cpf-funnel')"
+        [class]="dataService.viewMode() === 'cpf-funnel' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
         class="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
-        title="Requirements (Kanban)"
+        title="CPF Funnel"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
         </svg>
       </button>
       <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1"></div>
@@ -211,6 +209,20 @@
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </button>
+      <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+      <!-- Requirements -->
+      <button
+        (click)="setViewMode('board')"
+        [class]="dataService.viewMode() === 'board' || dataService.viewMode() === 'table'
+          ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+          : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+        class="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
+        title="Requirements (Kanban)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
         </svg>
       </button>
       <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1"></div>
@@ -562,6 +574,8 @@
             <app-implementation-plans-view></app-implementation-plans-view>
           } @else if (dataService.viewMode() === 'work-requests') {
             <app-work-requests-view></app-work-requests-view>
+          } @else if (dataService.viewMode() === 'cpf-funnel') {
+            <app-cpf-funnel-view></app-cpf-funnel-view>
           } @else {
             <app-kanban-board></app-kanban-board>
           }

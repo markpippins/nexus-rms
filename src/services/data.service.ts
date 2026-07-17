@@ -51,7 +51,7 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
