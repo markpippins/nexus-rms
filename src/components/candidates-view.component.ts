@@ -265,7 +265,7 @@ export class CandidatesViewComponent {
     try {
       await this.dataService.promoteHarvestCandidate(candidate.id);
       this.candidates.update(list =>
-        list.map(c => c.id === candidate.id ? { ...c, status: 'useful' } : c)
+        list.map(c => c.id === candidate.id ? { ...c, status: 'staged' } : c)
       );
     } catch (err: any) {
       console.error('Failed to promote candidate:', err);

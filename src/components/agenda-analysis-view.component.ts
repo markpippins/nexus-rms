@@ -7,7 +7,7 @@ import { getStatusColor, CANDIDATE_STATUS_COLORS } from '../app/utils/view-helpe
 import { HarvestCandidate } from '../models/data.models';
 
 /** Union of candidate statuses that can be set via the analysis view. */
-type CandidateStatus = 'useful' | 'rejected';
+type CandidateStatus = 'staged' | 'rejected';
 
 interface TranscriptUnit {
   turn_index: number;
@@ -80,7 +80,7 @@ export class AgendaAnalysisViewComponent {
     this.dataService.viewMode.set('agendas');
   }
 
-  /** Load candidates from the agendaAnalysisCandidateIds signal (bypasses useful filter). */
+  /** Load candidates from the agendaAnalysisCandidateIds signal (bypasses staged filter). */
   async loadAgendaCandidates() {
     this.searchQuery.set('');
     this.showSearch.set(false);
@@ -151,7 +151,7 @@ export class AgendaAnalysisViewComponent {
     }
   }
 
-  async loadUsefulCandidates() {
+  async loadStagedCandidates() {
     // Keep as fallback for the Analysis view (not used by Agenda Analysis)
     return this.loadAgendaCandidates();
   }
@@ -253,7 +253,7 @@ export class AgendaAnalysisViewComponent {
     return escaped.replace(regex, '<mark class="agenda-analysis-highlight">$1</mark>');
   }
 
-  /** Close a tab: unset useful → linked (non-terminal), remove from tracked IDs,
+  /** Close a tab: unset staged → linked (non-terminal), remove from tracked IDs,
    *  delete the agenda item from the DB, and drop the tab. */
   async closeTab(event: MouseEvent, tabIndex: number) {
     event.stopPropagation();
@@ -264,7 +264,7 @@ export class AgendaAnalysisViewComponent {
     const agendaId = this.dataService.agendaAnalysisData()?.id;
 
     try {
-      // Unset useful → linked via PATCH (bypasses terminal state enforcement)
+      // Unset staged → linked via PATCH (bypasses terminal state enforcement)
       await this.dataService.updateHarvestCandidate(candidateId, { status: 'linked' });
     } catch (err: any) {
       console.error('Failed to unmark candidate:', err);
@@ -334,11 +334,11 @@ export class AgendaAnalysisViewComponent {
   /** ID of the candidate currently being promoted/rejected (for spinner). */
   togglingCandidateId = signal<string | null>(null);
 
-  /** Mark a candidate as useful or rejected from the candidates list. */
+  /** Mark a candidate as staged or rejected from the candidates list. */
   async toggleCandidateStatus(candidate: HarvestCandidate, status: CandidateStatus) {
     this.togglingCandidateId.set(candidate.id);
     try {
-      if (status === 'useful') {
+      if (status === 'staged') {
         await this.dataService.promoteHarvestCandidate(candidate.id);
       } else {
         await this.dataService.rejectHarvestCandidate(candidate.id);
@@ -468,7 +468,7 @@ export class AgendaAnalysisViewComponent {
     this.creatingAgenda.set(true);
     this.createAgendaError.set(null);
 
-    // Collect all useful candidate IDs from all open tabs
+    // Collect all staged candidate IDs from all open tabs
     const candidateIds = this.tabs().map(t => t.candidate.id);
 
     try {

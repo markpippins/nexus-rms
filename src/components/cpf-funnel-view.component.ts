@@ -68,6 +68,19 @@ export class CpfFunnelViewComponent {
   readonly statusFilter = signal<string>('');
   readonly selectedBand = signal<number | null>(null);
 
+  // ── Sorting ───────────────────────────────────────────────────────
+  readonly sortField = signal<'score' | 'title' | 'system' | 'status' | 'deps'>('score');
+  readonly sortDirection = signal<'asc' | 'desc'>('desc');
+
+  setSort(field: 'score' | 'title' | 'system' | 'status' | 'deps') {
+    if (this.sortField() === field) {
+      this.sortDirection.update(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortField.set(field);
+      this.sortDirection.set('desc');
+    }
+  }
+
   // ── Funnel tabs ──────────────────────────────────────────────────
   readonly activeTab = signal<'ready' | 'promoted'>('ready');
 
@@ -172,8 +185,32 @@ export class CpfFunnelViewComponent {
       filtered = filtered.filter(c => c.status === status);
     }
 
-    // Sort by CPF score descending
-    return [...filtered].sort((a, b) => b.compilation_readiness - a.compilation_readiness);
+    // Apply dynamic sorting
+    const sortField = this.sortField();
+    const sortDir = this.sortDirection();
+    const multiplier = sortDir === 'desc' ? -1 : 1;
+
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'score':
+          cmp = a.compilation_readiness - b.compilation_readiness;
+          break;
+        case 'title':
+          cmp = (a.title || '').localeCompare(b.title || '');
+          break;
+        case 'system':
+          cmp = (a.system_name || '').localeCompare(b.system_name || '');
+          break;
+        case 'status':
+          cmp = (a.status || '').localeCompare(b.status || '');
+          break;
+        case 'deps':
+          cmp = (a.dep_count ?? 0) - (b.dep_count ?? 0);
+          break;
+      }
+      return cmp * multiplier;
+    });
   });
 
   readonly promotingId = signal<string | null>(null);
@@ -319,12 +356,14 @@ export class CpfFunnelViewComponent {
     return count;
   });
 
-  /** Reset all filters to defaults and reload. */
+  /** Reset all filters (including sort) to defaults and reload. */
   resetFilters() {
     this.threshold.set(0.7);
     this.systemFilter.set('');
     this.statusFilter.set('');
     this.selectedBand.set(null);
+    this.sortField.set('score');
+    this.sortDirection.set('desc');
     this.resetPagination();
   }
 
@@ -362,13 +401,23 @@ export class CpfFunnelViewComponent {
     if (tab === 'promoted') {
       this.activeTab.set('promoted');
     }
+
+    const sort = params.get('cpf_sort');
+    if (sort === 'title' || sort === 'system' || sort === 'status' || sort === 'deps') {
+      this.sortField.set(sort);
+    }
+
+    const dir = params.get('cpf_dir');
+    if (dir === 'asc' || dir === 'desc') {
+      this.sortDirection.set(dir);
+    }
   }
 
   /** Write current filter state to URL query params via replaceState, preserving unrelated params. */
   private syncFiltersToUrl(): void {
     const params = new URLSearchParams(window.location.search);
     // Clear any stale CPF-prefixed params first
-    for (const key of ['cpf_threshold', 'cpf_system', 'cpf_status', 'cpf_band', 'cpf_tab']) {
+    for (const key of ['cpf_threshold', 'cpf_system', 'cpf_status', 'cpf_band', 'cpf_tab', 'cpf_sort', 'cpf_dir']) {
       params.delete(key);
     }
     // Set non-default values
@@ -377,6 +426,8 @@ export class CpfFunnelViewComponent {
     if (this.statusFilter()) params.set('cpf_status', this.statusFilter());
     if (this.selectedBand() !== null) params.set('cpf_band', this.selectedBand()!.toString());
     if (this.activeTab() !== 'ready') params.set('cpf_tab', this.activeTab());
+    if (this.sortField() !== 'score') params.set('cpf_sort', this.sortField());
+    if (this.sortDirection() !== 'desc') params.set('cpf_dir', this.sortDirection());
 
     const search = params.toString();
     const url = search ? `${window.location.pathname}?${search}` : window.location.pathname;

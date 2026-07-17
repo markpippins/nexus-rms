@@ -14,7 +14,7 @@
       </svg>
       <p class="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Failed to load candidates</p>
       <p class="text-xs text-red-400 dark:text-red-500 mb-4">{{ error() }}</p>
-      <button (click)="loadUsefulCandidates()" class="px-4 py-2 text-xs font-medium rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
+      <button (click)="loadStagedCandidates()" class="px-4 py-2 text-xs font-medium rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-colors">
         Retry
       </button>
     </div>
@@ -23,21 +23,21 @@
       <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
       </svg>
-      <p class="text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">No useful candidates</p>
-      <p class="text-xs text-gray-400 dark:text-gray-500">Mark candidates as "useful" in the Harvests view to see them here.</p>
+      <p class="text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">No staged candidates</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500">Stage candidates in the Harvests view to see them here.</p>
     </div>
   } @else {
     <!-- Toolbar -->
     <div class="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between gap-3">
       <span class="text-xs text-gray-500 dark:text-gray-400">
-        {{ tabs().length }} harvest{{ tabs().length !== 1 ? 's' : '' }} with useful candidates
+        {{ tabs().length }} harvest{{ tabs().length !== 1 ? 's' : '' }} with staged candidates
       </span>
       <div class="flex items-center gap-2">
         <button
           (click)="openNewAgendaDialog()"
           [disabled]="tabs().length === 0"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-          title="Create a new agenda from all useful candidates"
+          title="Create a new agenda from all staged candidates"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -45,7 +45,7 @@
           New Agenda
         </button>
         <button
-          (click)="loadUsefulCandidates()"
+          (click)="loadStagedCandidates()"
           class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           title="Refresh"
         >
@@ -153,7 +153,7 @@
               }
               <div class="flex items-center gap-2 mb-4 flex-wrap">
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  useful
+                  staged
                 </span>
                 @if (tab.candidate.tags?.length) {
                   @for (tag of tab.candidate.tags; track tag) {
@@ -369,19 +369,19 @@
                             }
                           </button>
                         }
-                        <!-- useful / not-useful chip toggles -->
-                        @if (c.status !== 'useful' && c.status !== 'rejected' && c.status !== 'promoted' && !isToggling(c.id)) {
+                        <!-- staged / not-staged chip toggles -->
+                        @if (c.status !== 'staged' && c.status !== 'rejected' && c.status !== 'promoted' && !isToggling(c.id)) {
                           <button
-                            (click)="toggleCandidateStatus(c, 'useful')"
+                            (click)="toggleCandidateStatus(c, 'staged')"
                             class="p-0.5 rounded text-green-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors opacity-0 group-hover/cand:opacity-100"
-                            title="Mark as useful"
+                            title="Stage candidate"
                           >
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                           </button>
                           <button
                             (click)="toggleCandidateStatus(c, 'rejected')"
                             class="p-0.5 rounded text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover/cand:opacity-100"
-                            title="Mark as not useful"
+                            title="Unstage candidate"
                           >
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                           </button>
@@ -402,7 +402,7 @@
 
     <!-- Footer Status -->
     <div class="h-7 flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-400 dark:text-gray-500">
-      <span>{{ tabs().length }} harvest{{ tabs().length !== 1 ? 's' : '' }} with useful candidates</span>
+      <span>{{ tabs().length }} harvest{{ tabs().length !== 1 ? 's' : '' }} with staged candidates</span>
     </div>
   }
 </div>

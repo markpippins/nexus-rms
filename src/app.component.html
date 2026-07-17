@@ -643,8 +643,7 @@
                         [class]="selectedCandidate()!.status === 'linked'
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                           : selectedCandidate()!.status === 'unlinked'
-                          ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                          : selectedCandidate()!.status === 'useful'
+                          ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'                           : selectedCandidate()!.status === 'staged'
                           ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                           : selectedCandidate()!.status === 'rejected'
                           ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
@@ -823,8 +822,7 @@
                     <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Actions</h4>
                     <div class="flex flex-col gap-1.5">
                       @if (selectedCandidate()!.status === 'linked' || selectedCandidate()!.status === 'pending' || selectedCandidate()!.status === 'unlinked') {
-                        <button
-                          (click)="markCandidateUseful(selectedCandidate()!)"
+                        <button                           (click)="stageCandidate(selectedCandidate()!)"
                           [disabled]="promotingCandidateId() === selectedCandidate()!.id"
                           class="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
@@ -832,7 +830,7 @@
                             <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                           }
                           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                          Mark as Useful
+                          Stage
                         </button>
                       }
                       <button

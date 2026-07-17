@@ -188,17 +188,17 @@ export class AppComponent {
     return lookupHierarchyName(this.dataService, id, type);
   }
 
-  async markCandidateUseful(candidate: HarvestCandidate) {
+  async stageCandidate(candidate: HarvestCandidate) {
     this.promotingCandidateId.set(candidate.id);
     try {
       await this.dataService.promoteHarvestCandidate(candidate.id);
       // Update local state
       const updated = this.harvestCandidates().map(c =>
-        c.id === candidate.id ? { ...c, status: 'useful' } : c
+        c.id === candidate.id ? { ...c, status: 'staged' } : c
       );
       this.harvestCandidates.set(updated);
     } catch (err: any) {
-      console.error('Failed to promote candidate:', err);
+      console.error('Failed to stage candidate:', err);
     } finally {
       this.promotingCandidateId.set(null);
     }

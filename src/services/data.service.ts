@@ -976,7 +976,7 @@ export class DataService {
 
   async promoteHarvestCandidate(id: string): Promise<{ ok: boolean; result: string }> {
     const res = await firstValueFrom(
-      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'useful' })
+      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'staged' })
     );
     return res;
   }

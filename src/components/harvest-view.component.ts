@@ -510,7 +510,7 @@ export class HarvestViewComponent {
     }
   }
 
-  // ── Promote / Mark Useful ──────────────────────────────────
+  // ── Promote / Stage ──────────────────────────────────
 
   async promoteCandidate(candidate: HarvestCandidate) {
     this.promotingId.set(candidate.id);
@@ -518,7 +518,7 @@ export class HarvestViewComponent {
       await this.dataService.promoteHarvestCandidate(candidate.id);
       // Update local state
       const updated = this.selectedHarvestCandidates().map(c =>
-        c.id === candidate.id ? { ...c, status: 'useful' } : c
+        c.id === candidate.id ? { ...c, status: 'staged' } : c
       );
       this.selectedHarvestCandidates.set(updated);
     } catch (err: any) {
@@ -661,8 +661,8 @@ export class HarvestViewComponent {
 
   // ── Promote to Plan ──────────────────────────────────────────
 
-  get usefulCandidates(): HarvestCandidate[] {
-    return this.selectedHarvestCandidates().filter(c => c.status === 'useful');
+  get stagedCandidates(): HarvestCandidate[] {
+    return this.selectedHarvestCandidates().filter(c => c.status === 'staged');
   }
 
   async transformToRequirement(candidate: HarvestCandidate) {
@@ -693,16 +693,16 @@ export class HarvestViewComponent {
   }
 
   async promoteToAgenda() {
-    const useful = this.usefulCandidates;
-    if (useful.length === 0) return;
+    const staged = this.stagedCandidates;
+    if (staged.length === 0) return;
 
     this.promotingToAgenda.set(true);
     this.promoteToAgendaResult.set(null);
     try {
-      const result = await this.dataService.promoteToAgenda(useful.map(c => c.id));
+      const result = await this.dataService.promoteToAgenda(staged.map(c => c.id));
       this.promoteToAgendaResult.set(`Agenda created: ${result.agenda_title}`);
       // Mark all promoted as promoted locally
-      const promotedIds = new Set(useful.map(c => c.id));
+      const promotedIds = new Set(staged.map(c => c.id));
       const updated = this.selectedHarvestCandidates().map(c =>
         promotedIds.has(c.id) ? { ...c, status: 'promoted' } : c
       );

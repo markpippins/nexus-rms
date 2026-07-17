@@ -113,8 +113,8 @@ export class AgendasViewComponent {
   /**
    * When an agenda card is clicked:
    * 1. Fetch the full agenda (to get item source_ids)
-   * 2. Clear the "useful" flag from all candidates
-   * 3. Mark the agenda's candidate items as "useful"
+   * 2. Clear the "staged" flag from all candidates
+   * 3. Mark the agenda's candidate items as "staged"
    * 4. Navigate to the Agenda Analysis view
    */
   async selectAgenda(agenda: any) {
@@ -184,39 +184,39 @@ export class AgendasViewComponent {
         return;
       }
 
-      // 2. Clear existing "useful" flags via direct PATCH (bypasses terminal state restrictions)
-      let previouslyUsefulIds: string[] = [];
+      // 2. Clear existing "staged" flags via direct PATCH (bypasses terminal state restrictions)
+      let previouslyStagedIds: string[] = [];
       try {
         const data = await this.dataService.listHarvestCandidates({ limit: 500 });
-        const usefulOnes = (data.candidates || []).filter((c: any) => c.status === 'useful');
-        previouslyUsefulIds = usefulOnes.map((c: any) => c.id);
-        for (const c of usefulOnes) {
+        const stagedOnes = (data.candidates || []).filter((c: any) => c.status === 'staged');
+        previouslyStagedIds = stagedOnes.map((c: any) => c.id);
+        for (const c of stagedOnes) {
           await this.dataService.updateHarvestCandidate(c.id, { status: 'linked' });
         }
       } catch (err: any) {
-        console.error('Failed to clear existing useful flags:', err);
+        console.error('Failed to clear existing staged flags:', err);
       }
 
-      // 3. Mark the agenda's candidates as useful (direct PATCH, bypasses terminal state)
+      // 3. Mark the agenda's candidates as staged (direct PATCH, bypasses terminal state)
       let promotedCount = 0;
       const promotionErrors: string[] = [];
       for (const candidateId of agendaCandidateIds) {
         try {
-          await this.dataService.updateHarvestCandidate(candidateId, { status: 'useful' });
+          await this.dataService.updateHarvestCandidate(candidateId, { status: 'staged' });
           promotedCount++;
         } catch (err: any) {
-          console.error(`Failed to mark candidate ${candidateId} as useful:`, err);
+          console.error(`Failed to stage candidate ${candidateId}:`, err);
           promotionErrors.push(candidateId);
         }
       }
 
       if (promotedCount === 0) {
-        // Restore previously useful candidates since we have nothing new to show
-        if (previouslyUsefulIds.length > 0) {
+        // Restore previously staged candidates since we have nothing new to show
+        if (previouslyStagedIds.length > 0) {
           let restoredCount = 0;
-          for (const id of previouslyUsefulIds) {
+          for (const id of previouslyStagedIds) {
             try {
-              await this.dataService.updateHarvestCandidate(id, { status: 'useful' });
+              await this.dataService.updateHarvestCandidate(id, { status: 'staged' });
               restoredCount++;
             } catch (err: any) {
               console.error(`Failed to restore candidate ${id}:`, err);
@@ -224,7 +224,7 @@ export class AgendasViewComponent {
           }
           if (restoredCount > 0) {
             this.toastService.show(
-              `No agenda candidates loaded — restored ${restoredCount} previously useful candidate${restoredCount !== 1 ? 's' : ''}.`,
+              `No agenda candidates loaded — restored ${restoredCount} previously staged candidate${restoredCount !== 1 ? 's' : ''}.`,
               'info'
             );
           }
@@ -313,7 +313,7 @@ export class AgendasViewComponent {
     const colors: Record<string, string> = {
       pending: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
       linked: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      useful: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      staged: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
       promoted: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
       rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     };

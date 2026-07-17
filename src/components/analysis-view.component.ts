@@ -7,7 +7,7 @@ import { getStatusColor, CANDIDATE_STATUS_COLORS } from '../app/utils/view-helpe
 import { HarvestCandidate } from '../models/data.models';
 
 /** Union of candidate statuses that can be set via the analysis view. */
-type CandidateStatus = 'useful' | 'rejected';
+type CandidateStatus = 'staged' | 'rejected';
 
 interface TranscriptUnit {
   turn_index: number;
@@ -55,10 +55,10 @@ export class AnalysisViewComponent {
   tabScrollLeft = signal(0);
 
   constructor() {
-    this.loadUsefulCandidates();
+    this.loadStagedCandidates();
   }
 
-  async loadUsefulCandidates() {
+  async loadStagedCandidates() {
     // Reset find-in-file state on refresh
     this.searchQuery.set('');
     this.showSearch.set(false);
@@ -67,13 +67,13 @@ export class AnalysisViewComponent {
     this.error.set(null);
     this.tabScrollLeft.set(0);
     try {
-      // Fetch all candidates and filter for 'useful' client-side
+      // Fetch all candidates and filter for 'staged' client-side
       const data = await this.dataService.listHarvestCandidates({ limit: 500 });
-      const useful = (data.candidates || []).filter((c: HarvestCandidate) => c.status === 'useful');
+      const staged = (data.candidates || []).filter((c: HarvestCandidate) => c.status === 'staged');
 
-      // Deduplicate by harvest_id — one tab per harvest that has at least one useful candidate
+      // Deduplicate by harvest_id — one tab per harvest that has at least one staged candidate
       const seenHarvests = new Map<string, HarvestCandidate>();
-      for (const c of useful) {
+      for (const c of staged) {
         const hid = c.harvest_id;
         if (hid && !seenHarvests.has(hid)) {
           seenHarvests.set(hid, c);
@@ -98,7 +98,7 @@ export class AnalysisViewComponent {
         this.loadTranscript(0);
       }
     } catch (err: any) {
-      this.error.set(err.message || 'Failed to load useful candidates');
+      this.error.set(err.message || 'Failed to load staged candidates');
     } finally {
       this.loading.set(false);
     }
@@ -201,7 +201,7 @@ export class AnalysisViewComponent {
     return escaped.replace(regex, '<mark class="analysis-highlight">$1</mark>');
   }
 
-  /** Close a tab: reject the candidate (unmark useful) and remove the tab. */
+  /** Close a tab: reject the candidate (unstage) and remove the tab. */
   async closeTab(event: MouseEvent, tabIndex: number) {
     event.stopPropagation();
     const tab = this.tabs()[tabIndex];
@@ -264,11 +264,11 @@ export class AnalysisViewComponent {
   /** ID of the candidate currently being promoted/rejected (for spinner). */
   togglingCandidateId = signal<string | null>(null);
 
-  /** Mark a candidate as useful or rejected from the candidates list. */
+  /** Mark a candidate as staged or rejected from the candidates list. */
   async toggleCandidateStatus(candidate: HarvestCandidate, status: CandidateStatus) {
     this.togglingCandidateId.set(candidate.id);
     try {
-      if (status === 'useful') {
+      if (status === 'staged') {
         await this.dataService.promoteHarvestCandidate(candidate.id);
       } else {
         await this.dataService.rejectHarvestCandidate(candidate.id);
@@ -280,7 +280,7 @@ export class AnalysisViewComponent {
           c.id === candidate.id ? { ...c, status } : c
         ),
       })));
-      // If rejected, also remove from the "useful" filter so it won't appear on reload
+      // If rejected, also remove from the "staged" filter so it won't appear on reload
       // (We don't reload — let the user see the status change inline.)
     } catch (err: any) {
       console.error('Failed to update candidate status:', err);
@@ -373,7 +373,7 @@ export class AnalysisViewComponent {
     this.creatingAgenda.set(true);
     this.createAgendaError.set(null);
 
-    // Collect all useful candidate IDs from all open tabs
+    // Collect all staged candidate IDs from all open tabs
     const candidateIds = this.tabs().map(t => t.candidate.id);
 
     try {
