@@ -1,5 +1,5 @@
 
-import { Component, inject, input, output, computed } from '@angular/core';
+import { Component, inject, input, output, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { Requirement, Status } from '../models/data.models';
@@ -21,6 +21,23 @@ export class BoardViewComponent {
   copyReqPrompt = output<Requirement>();
   editReq = output<Requirement>();
   duplicateReq = output<Requirement>();
+
+  // ── Right-side Detail Drawer ──────────────────────────────────
+  selectedReqId = signal<string | null>(null);
+
+  selectedRequirement = computed(() => {
+    const id = this.selectedReqId();
+    if (!id) return null;
+    return this.requirements().find(r => r.id === id) ?? null;
+  });
+
+  selectRequirement(reqId: string) {
+    this.selectedReqId.update(current => current === reqId ? null : reqId);
+  }
+
+  closeDetailPanel() {
+    this.selectedReqId.set(null);
+  }
 
   columns: Status[] = ['Backlog', 'ToDo', 'InProgress', 'Done'];
   draggedReqId: string | null = null;
