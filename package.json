@@ -18,13 +18,11 @@
     "@angular/forms": "^21.0.8",
     "@angular/platform-browser": "^21.0.0",
     "@google/genai": "^1.35.0",
-    "@tailwindcss/vite": "^4.3.3",
     "rxjs": "^7.8.2",
     "tailwindcss": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "~5.8.2"
   }
 }
