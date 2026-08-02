@@ -2,25 +2,26 @@ import { Component, inject, signal, computed, HostListener } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
 import { ToastService } from '../services/toast.service';
 import { formatDate, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
 
 interface HarvestEntry {
   id: string;
-  source_path: string;
-  source_filename: string;
+  sourcePath: string;
+  sourceFilename: string;
   model: string;
-  total_candidates: number;
+  totalCandidates: number;
   tags: string[] | null;
   metadata: any;
-  created_at: string;
-  code_blocks?: number;
+  createdAt: number; // epoch ms — /api/harvests camelCases rows (camelCaseRow converts Date→getTime())
+  codeBlocks?: number;
   turns?: number;
-  blocks_per_turn?: number;
-  user_turns?: number;
-  keyword_hits?: number;
-  tag_frequency?: number;
+  blocksPerTurn?: number;
+  userTurns?: number;
+  keywordHits?: number;
+  tagFrequency?: number;
 }
 
 interface TranscriptUnit {
@@ -44,7 +45,7 @@ interface TranscriptBlock {
 @Component({
   selector: 'app-harvest-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HarvestFilterBarComponent],
   templateUrl: './harvest-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -303,7 +304,7 @@ export class HarvestViewComponent {
     this.transcriptSearchMatchIndex.set(0);
     this.transcriptOpen.set(true);
     this.transcriptHarvestId.set(harvest.id);
-    this.transcriptTitle.set(harvest.source_filename);
+    this.transcriptTitle.set(harvest.sourceFilename);
     this.transcriptLoading.set(true);
     try {
       const data = await this.dataService.getHarvestTranscript(harvest.id);

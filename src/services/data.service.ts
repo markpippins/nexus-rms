@@ -51,17 +51,13 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
 
-  readonly listViewModes = new Set(['harvests', 'candidates', 'intents', 'agendas', 'specifications', 'plans', 'work-requests']);
-  readonly isListViewMode = computed(() => this.listViewModes.has(this.viewMode()));
-
   // Shared sort & filter panel for all list views
   readonly listViewSortMode = signal<string>('newest');
-  readonly listViewFiltersExpanded = signal(false);
 
   readonly listViewSortOptions: string[] = ['newest', 'oldest', 'alpha_asc', 'alpha_desc'];
   readonly listViewSortLabels: Record<string, string> = {
@@ -71,12 +67,9 @@ export class DataService {
     alpha_desc: 'Z → A',
   };
 
-  toggleListViewFilters() {
-    this.listViewFiltersExpanded.update(v => !v);
-  }
-
   /** Client-side sort helper — respects listViewSortMode. Use at end of filteredXxx() computeds. */
-  sortByMode<T extends Record<string, any>>(items: T[]): T[] {
+  sortByMode<T extends Record<string, any>>(items: T[] | null | undefined): T[] {
+    if (!items) return [];
     const mode = this.listViewSortMode();
     if (mode === 'newest' || mode === 'oldest') {
       const sorted = [...items];
@@ -117,8 +110,7 @@ export class DataService {
   // Cross-component signal: when set to true, the right panel auto-expands transcript
   readonly autoExpandTranscript = signal(false);
 
-  // ── Harvest Search & Filter State (shared with main toolbar) ────
-  readonly harvestSearchTerm = signal('');
+  // ── Harvest Search & Filter State ───────────────────────────────
   readonly harvestSortMode = signal<string>('created_at');
   readonly harvestKeywordFilter = signal('');
   readonly harvestHideEmpty = signal(false);
@@ -148,7 +140,7 @@ export class DataService {
   };
 
   readonly harvestHasCandidatesCount = computed(() =>
-    this.harvests().filter(h => h.total_candidates > 0).length
+    this.harvests().filter(h => h.totalCandidates > 0).length
   );
 
   readonly harvestFilteredHarvests = computed(() => {
@@ -156,13 +148,13 @@ export class DataService {
     let list = this.harvests();
     if (term) {
       list = list.filter((h: any) =>
-        h.source_filename.toLowerCase().includes(term) ||
-        h.source_path.toLowerCase().includes(term) ||
+        (h.sourceFilename || '').toLowerCase().includes(term) ||
+        (h.sourcePath || '').toLowerCase().includes(term) ||
         (h.model && h.model.toLowerCase().includes(term))
       );
     }
     if (this.harvestHideEmpty()) {
-      list = list.filter((h: any) => h.total_candidates > 0);
+      list = list.filter((h: any) => h.totalCandidates > 0);
     }
     return list;
   });
@@ -329,24 +321,29 @@ export class DataService {
 
   async refreshRequirements() {
     try {
-      const requirements = await firstValueFrom(this.http.get<Requirement[]>(`${this.apiUrl}/requirements`));
-      if (requirements) this.requirements.set(requirements);
+      const res = await firstValueFrom(this.http.get<any>(`${this.apiUrl}/requirements`));
+      this.requirements.set(this.extractItems<Requirement>(res));
     } catch (err) {
       console.error('Failed to refresh requirements:', err);
     }
   }
 
+  /** Unwrap paginated API response — nebula-srv returns {items, total, page, pageSize} */
+  private extractItems<T>(res: any): T[] {
+    return Array.isArray(res) ? res : res?.items ?? [];
+  }
+
   private async fetchAll() {
     const [systems, requirements, sessions, workspaces] = await Promise.all([
-      firstValueFrom(this.http.get<System[]>(`${this.apiUrl}/systems`)),
-      firstValueFrom(this.http.get<Requirement[]>(`${this.apiUrl}/requirements`)),
-      firstValueFrom(this.http.get<WorkSession[]>(`${this.apiUrl}/sessions`)),
-      firstValueFrom(this.http.get<WorkspaceEntry[]>(`${this.apiUrl}/workspaces`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/systems`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/requirements`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/sessions`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/workspaces`)),
     ]);
-    if (systems) this.systems.set(systems);
-    if (requirements) this.requirements.set(requirements);
-    if (sessions) this.workSessions.set(sessions);
-    if (workspaces) this.workspaces.set(workspaces);
+    this.systems.set(this.extractItems<System>(systems));
+    this.requirements.set(this.extractItems<Requirement>(requirements));
+    this.workSessions.set(this.extractItems<WorkSession>(sessions));
+    this.workspaces.set(this.extractItems<WorkspaceEntry>(workspaces));
   }
 
   private async seedFromServer() {
@@ -362,8 +359,8 @@ export class DataService {
   }
 
   refreshWorkspaces() {
-    this.http.get<WorkspaceEntry[]>(`${this.apiUrl}/workspaces`).subscribe({
-      next: (ws) => this.workspaces.set(ws),
+    this.http.get<any>(`${this.apiUrl}/workspaces`).subscribe({
+      next: (res) => this.workspaces.set(this.extractItems<WorkspaceEntry>(res)),
       error: (err) => console.error('Failed to fetch workspaces:', err),
     });
   }
@@ -374,9 +371,10 @@ export class DataService {
 
   async fetchInfoTabs(systemId: string): Promise<{ tab_id: string; content: string }[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<{ tab_id: string; content: string }[]>(`${this.apiUrl}/systems/${systemId}/info`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/systems/${systemId}/info`)
       );
+      return this.extractItems<{ tab_id: string; content: string }>(res);
     } catch {
       return [];
     }
@@ -862,6 +860,37 @@ export class DataService {
     } catch (err) {
       console.error('Failed to fetch feature work requests:', err);
       return { featureId, workRequests: [], count: 0 };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  OPEN QUESTIONS
+  // ══════════════════════════════════════════════════════════════════
+
+  async listOpenQuestions(params?: { limit?: number; requirementId?: string; candidateId?: string }): Promise<{ questions: any[]; count: number }> {
+    try {
+      const qs = new URLSearchParams();
+      if (params?.limit) qs.set('pageSize', String(params.limit));
+      if (params?.requirementId) qs.set('requirementId', params.requirementId);
+      if (params?.candidateId) qs.set('candidateId', params.candidateId);
+      const query = qs.toString();
+      return await firstValueFrom(
+        this.http.get<{ questions: any[]; count: number }>(`${this.apiUrl}/open-questions${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to list open questions:', err);
+      return { questions: [], count: 0 };
+    }
+  }
+
+  async getOpenQuestionAnswers(questionId: string): Promise<{ answers: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ answers: any[]; count: number }>(`${this.apiUrl}/open-questions/${questionId}/answers`)
+      );
+    } catch (err) {
+      console.error('Failed to get open question answers:', err);
+      return { answers: [], count: 0 };
     }
   }
 
@@ -1419,9 +1448,10 @@ export class DataService {
 
   async fetchChildren(parentId: string): Promise<Requirement[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<Requirement[]>(`${this.apiUrl}/requirements/${parentId}/children`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/requirements/${parentId}/children`)
       );
+      return this.extractItems<Requirement>(res);
     } catch (err) {
       console.error('Failed to fetch requirement children:', err);
       return [];
@@ -1430,9 +1460,10 @@ export class DataService {
 
   async fetchDependencies(reqId: string): Promise<RequirementDependency[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<RequirementDependency[]>(`${this.apiUrl}/requirements/${reqId}/dependencies`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/requirements/${reqId}/dependencies`)
       );
+      return this.extractItems<RequirementDependency>(res);
     } catch (err) {
       console.error('Failed to fetch requirement dependencies:', err);
       return [];
@@ -1780,6 +1811,66 @@ export class DataService {
     } catch (err) {
       console.error('Failed to list references:', err);
       return { references: [] };
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  CPF — COMPILATION READINESS FUNNEL (via nebula-srv)
+  // ════════════════════════════════════════════════════════════════
+
+  async fetchCpfCandidates(opts: {
+    all?: boolean;
+    threshold?: number;
+    candidateId?: string;
+    system?: string;
+    subsystem?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: any[]; count: number }> {
+    try {
+      const params = new URLSearchParams();
+      if (opts.all) params.set('all', '1');
+      if (opts.threshold !== undefined) params.set('threshold', String(opts.threshold));
+      if (opts.candidateId) params.set('candidate', opts.candidateId);
+      if (opts.system) params.set('system', opts.system);
+      if (opts.subsystem) params.set('subsystem', opts.subsystem);
+      if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+      const query = params.toString();
+      return await firstValueFrom(
+        this.http.get<{ data: any[]; count: number }>(`${this.apiUrl}/cpf${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch CPF candidates:', err);
+      return { data: [], count: 0 };
+    }
+  }
+
+  async fetchCpfCounts(opts?: { system?: string; subsystem?: string }): Promise<{
+    total: number; ready: number; promoted: number; near_miss: number; low: number;
+  }> {
+    try {
+      const params = new URLSearchParams();
+      if (opts?.system) params.set('system', opts.system);
+      if (opts?.subsystem) params.set('subsystem', opts.subsystem);
+      const query = params.toString();
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/cpf/count${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch CPF counts:', err);
+      return { total: 0, ready: 0, promoted: 0, near_miss: 0, low: 0 };
+    }
+  }
+
+  async promoteCpfCandidate(candidateId: string): Promise<any> {
+    try {
+      return await firstValueFrom(
+        this.http.post(`${this.apiUrl}/cpf/promote`, { candidate_id: candidateId })
+      );
+    } catch (err) {
+      console.error('Failed to promote candidate:', err);
+      throw err;
     }
   }
 }

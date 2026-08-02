@@ -2,13 +2,14 @@ import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ListViewSortBarComponent } from './list-view-sort-bar.component';
 import { ToastService } from '../services/toast.service';
 import { formatDate, getStatusColor, createHierarchyLabel, getCohesionColor, getCohesionBg } from '../app/utils/view-helpers';
 
 @Component({
   selector: 'app-agendas-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ListViewSortBarComponent],
   templateUrl: './agendas-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -60,8 +61,10 @@ export class AgendasViewComponent {
   });
 
   statusCounts = computed(() => {
+    const agendas = this.agendas();
+    if (!agendas) return {};
     const counts: Record<string, number> = {};
-    for (const a of this.agendas()) {
+    for (const a of agendas) {
       const s = a.status || 'draft';
       counts[s] = (counts[s] || 0) + 1;
     }
@@ -69,7 +72,9 @@ export class AgendasViewComponent {
   });
 
   totalItems = computed(() => {
-    return this.agendas().reduce((sum, a) => sum + (a.item_count || a.items?.length || 0), 0);
+    const agendas = this.agendas();
+    if (!agendas) return 0;
+    return agendas.reduce((sum, a) => sum + (a.item_count || a.items?.length || 0), 0);
   });
 
   constructor() {

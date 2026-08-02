@@ -1,8 +1,6 @@
 import { Component, inject, signal, computed, effect, viewChild, afterNextRender, ElementRef, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 
 interface CpfCandidate {
   id: string;
@@ -24,13 +22,6 @@ interface CpfCounts {
   low: number;
 }
 
-interface CpfPageResponse {
-  data: CpfCandidate[];
-  count: number;
-  limit?: number;
-  offset?: number;
-}
-
 interface ReadinessBand {
   label: string;
   min: number;
@@ -46,9 +37,7 @@ interface ReadinessBand {
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
 export class CpfFunnelViewComponent {
-  private http = inject(HttpClient);
-  dataService = inject(DataService);
-  private readonly CPF_API_URL = 'http://localhost:3108';
+  private dataService = inject(DataService);
 
   // ── Constants ───────────────────────────────────────────────────
   readonly PAGE_SIZE = 100;
@@ -111,18 +100,9 @@ export class CpfFunnelViewComponent {
     return sys?.subsystems.find(s => s.id === subId)?.name || null;
   });
 
-  /** Build the query param string for hierarchy scoping. */
-  private hierarchyParams(): string {
-    const sys = this.hierarchySystemName();
-    const sub = this.hierarchySubsystemName();
-    const parts: string[] = [];
-    if (sys) parts.push(`system=${encodeURIComponent(sys)}`);
-    if (sub) parts.push(`subsystem=${encodeURIComponent(sub)}`);
-    return parts.length > 0 ? '&' + parts.join('&') : '';
-  }
-
   readonly systemNames = computed(() => {
-    return this.dataService.systems().map(s => s.name).sort();
+    const names = this.dataService.systems().map(s => s.name);
+    return [...new Set(names)].sort();
   });
 
   /** Unique statuses found in loaded (hierarchy-scoped) candidates. */
@@ -325,17 +305,29 @@ export class CpfFunnelViewComponent {
   }
 
   private async fetchPage(offset: number): Promise<{ data: CpfCandidate[] }> {
-    const res = await firstValueFrom(
-      this.http.get<CpfPageResponse>(`${this.CPF_API_URL}/api/cpf?all=1&limit=${this.PAGE_SIZE}&offset=${offset}${this.hierarchyParams()}`)
-    );
-    return { data: res.data || [] };
+    const hierarchy = this.buildHierarchyFilter();
+    const result = await this.dataService.fetchCpfCandidates({
+      all: true,
+      limit: this.PAGE_SIZE,
+      offset,
+      ...hierarchy,
+    });
+    return { data: result.data || [] };
   }
 
   private async fetchCounts(): Promise<CpfCounts> {
-    const h = this.hierarchyParams();
-    const url = h ? `${this.CPF_API_URL}/api/cpf/count?${h.slice(1)}` : `${this.CPF_API_URL}/api/cpf/count`;
-    const res = await firstValueFrom(this.http.get<CpfCounts>(url));
-    return res;
+    const hierarchy = this.buildHierarchyFilter();
+    return await this.dataService.fetchCpfCounts(hierarchy);
+  }
+
+  /** Build system/subsystem filter from hierarchy selection. */
+  private buildHierarchyFilter(): { system?: string; subsystem?: string } {
+    const result: { system?: string; subsystem?: string } = {};
+    const sys = this.hierarchySystemName();
+    const sub = this.hierarchySubsystemName();
+    if (sys) result.system = sys;
+    if (sub) result.subsystem = sub;
+    return result;
   }
 
   /** Called when filters/tab change — reset to first page. */
@@ -455,9 +447,7 @@ export class CpfFunnelViewComponent {
   async promoteCandidate(id: string) {
     this.promotingId.set(id);
     try {
-      await firstValueFrom(
-        this.http.post(`${this.CPF_API_URL}/api/cpf/promote`, { candidate_id: id })
-      );
+      await this.dataService.promoteCpfCandidate(id);
       // Reload data after promote
       await this.loadData();
     } catch (err: any) {

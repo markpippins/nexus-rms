@@ -1,22 +1,10 @@
 <div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
   <!-- Header -->
-  <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+  <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
     <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-lg font-bold text-gray-800 dark:text-gray-200">
-          Agendas
-        </h2>
-        @if (hierarchyLabel()) {
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Scoped to <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ hierarchyLabel() }}</span>
-            · {{ count() }} agenda{{ count() !== 1 ? 's' : '' }} · {{ totalItems() }} item{{ totalItems() !== 1 ? 's' : '' }}
-          </p>
-        } @else {
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            All agendas · {{ count() }} agenda{{ count() !== 1 ? 's' : '' }} · {{ totalItems() }} item{{ totalItems() !== 1 ? 's' : '' }}
-          </p>
-        }
-      </div>
+      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">
+        Agendas
+      </h2>
       <div class="flex items-center gap-2">
         <!-- Status filter pills -->
         <div class="flex items-center gap-1">
@@ -41,6 +29,9 @@
         </div>
       </div>
     </div>
+    <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+      <app-list-view-sort-bar placeholder="Search agendas..."></app-list-view-sort-bar>
+    </div>
   </div>
 
   <!-- Content -->
@@ -61,7 +52,7 @@
         </svg>
       </div>
     } @else if (error()) {
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center justify-between">
+      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span class="text-sm text-red-700 dark:text-red-400">{{ error() }}</span>
@@ -69,12 +60,12 @@
         <button (click)="retryTrigger.update(v => v + 1)" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
       </div>
     } @else if (filteredAgendas().length === 0) {
-      <div class="flex items-center justify-center py-32">
+      <div class="flex items-center justify-center py-20">
         <div class="text-center">
-          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
           </svg>
-          <p class="text-gray-400 dark:text-gray-500 font-medium">No agendas found</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500 font-medium">No agendas found</p>
           <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
             @if (statusFilter()) {
               Try adjusting the filters above.
@@ -86,7 +77,7 @@
       </div>
     } @else {
       <!-- Agenda Cards -->
-      <div class="p-6 space-y-4">
+      <div class="p-3 space-y-3">
         @for (agenda of filteredAgendas(); track agenda.id) {
           <div
             class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all hover:shadow-md cursor-pointer hover:border-emerald-300 dark:hover:border-emerald-700"
@@ -94,7 +85,7 @@
           >
             <!-- Agenda Header -->
             <div
-              class="px-5 py-4"
+              class="px-3 py-3"
               [class.border-b]="isExpanded(agenda.id)"
               [class.border-gray-100]="isExpanded(agenda.id)"
               [class.dark:border-gray-700]="isExpanded(agenda.id)"
@@ -173,7 +164,7 @@
             @if (isExpanded(agenda.id)) {
               <div class="bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
                 @if (!agenda.items || agenda.items.length === 0) {
-                  <div class="px-5 py-4 text-center">
+                  <div class="px-5 py-3 text-center">
                     <p class="text-[11px] text-gray-400 dark:text-gray-500 italic">No items in this agenda.</p>
                   </div>
                 } @else {
@@ -195,19 +186,19 @@
                     <table class="w-full text-xs">
                       <thead>
                         <tr class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
-                          <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
-                          <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
-                          <th class="text-left px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Source</th>
-                          <th class="text-center px-4 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Status</th>
+                          <th class="text-left px-3 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8">#</th>
+                          <th class="text-left px-3 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+                          <th class="text-left px-3 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Source</th>
+                          <th class="text-center px-3 py-2 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Status</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-50 dark:divide-gray-700/30">
                         @for (item of agenda.items; track item.id; let idx = $index) {
                           <tr class="hover:bg-white/50 dark:hover:bg-gray-700/20 transition-colors">
-                            <td class="px-4 py-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-mono tabular-nums">
+                            <td class="px-3 py-2.5 text-[10px] text-gray-400 dark:text-gray-500 font-mono tabular-nums">
                               {{ idx + 1 }}
                             </td>
-                            <td class="px-4 py-2.5">
+                            <td class="px-3 py-2.5">
                               <div>
                                 <p class="text-[11px] font-medium text-gray-700 dark:text-gray-300 leading-snug">
                                   {{ item.title || 'Untitled Item' }}
@@ -240,7 +231,7 @@
                                 }
                               </div>
                             </td>
-                            <td class="px-4 py-2.5">
+                            <td class="px-3 py-2.5">
                               <div class="flex items-center gap-1">
                                 <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
                                   {{ getSourceTypeIcon(item.source_type) }} {{ item.source_type || '—' }}
@@ -252,7 +243,7 @@
                                 }
                               </div>
                             </td>
-                            <td class="px-4 py-2.5 text-center">
+                            <td class="px-3 py-2.5 text-center">
                               <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
                                     [class]="getItemIncludedColor(item.included)">
                                 {{ getItemIncludedLabel(item.included) }}
@@ -273,7 +264,7 @@
   </div>
 
   <!-- Status Bar -->
-  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
     <span>
       @if (statusFilter()) {
         Filtered by {{ getStatusLabel(statusFilter()!) }}

@@ -2,12 +2,13 @@ import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ListViewSortBarComponent } from './list-view-sort-bar.component';
 import { formatDate, formatFullDate, getStatusColor, createHierarchyLabel, lookupHierarchyName, CANDIDATE_STATUS_COLORS } from '../app/utils/view-helpers';
 
 @Component({
   selector: 'app-intent-records-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ListViewSortBarComponent],
   templateUrl: './intent-records-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
   styles: [`
@@ -98,8 +99,10 @@ export class IntentRecordsViewComponent {
   });
 
   statusCounts = computed(() => {
+    const records = this.intentRecords();
+    if (!records) return {};
     const counts: Record<string, number> = {};
-    for (const r of this.intentRecords()) {
+    for (const r of records) {
       const s = r.status || 'unknown';
       counts[s] = (counts[s] || 0) + 1;
     }

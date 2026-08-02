@@ -14,7 +14,7 @@ export const CANDIDATE_STATUS_COLORS: Record<string, string> = {
  * Format an ISO date string as "Mon D, YYYY" (e.g., "Jan 1, 2026").
  * Returns empty string for falsy input.
  */
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | number): string {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

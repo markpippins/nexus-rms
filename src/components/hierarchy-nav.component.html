@@ -1,6 +1,6 @@
 <div class="h-full flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-colors">
   <!-- Header -->
-  <div class="h-12 px-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+  <div class="h-12 px-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
     <h2 class="font-bold text-gray-700 dark:text-gray-200">Systems</h2>
     <div class="flex gap-1">
       <!-- Hidden File Input for Import -->
@@ -35,7 +35,7 @@
 
   <!-- Add System Input -->
   @if (isAddingSystem()) {
-    <div class="p-4 bg-blue-50 dark:bg-slate-800 border-b border-blue-100 dark:border-slate-700">
+    <div class="p-3 bg-blue-50 dark:bg-slate-800 border-b border-blue-100 dark:border-slate-700">
       <input 
         type="text" 
         [(ngModel)]="newSystemName" 
@@ -287,7 +287,7 @@
       @if (showCandidatesPanel()) {
         <div class="max-h-64 overflow-y-auto border-t border-gray-100 dark:border-gray-700">
           @if (harvestCandidates().length === 0 && !candidatesLoading()) {
-            <div class="p-4 text-center">
+            <div class="p-3 text-center">
               <p class="text-xs text-gray-400 dark:text-gray-500">No harvest candidates linked to this {{ candidateContext()?.label }}.</p>
             </div>
           }
@@ -371,17 +371,17 @@
 
 <!-- Move/Reparent Modal -->
 @if (showMoveModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col transition-colors">
       
-      <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">
              Move {{ moveTargetType() }}
          </h3>
          <p class="text-xs text-gray-500 dark:text-gray-400 truncate">Moving: {{ movingItemName() }}</p>
       </div>
 
-      <div class="p-4 space-y-4">
+      <div class="p-3 space-y-4">
           @if (moveTargetType() === 'Feature') {
               <div>
                   <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Select System</label>
@@ -438,7 +438,7 @@
           }
       </div>
 
-      <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
          <button (click)="showMoveModal.set(false)" class="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
          <button 
            (click)="executeMove()" 
@@ -455,10 +455,10 @@
 
 <!-- Spawn Plan Modal -->
 @if (showSpawnPlanModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transition-colors">
       
-      <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">Spawn Plan</h3>
@@ -466,7 +466,7 @@
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">From: {{ spawnPlanCandidate()?.title }}</p>
       </div>
 
-      <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
+      <div class="p-3 space-y-3 max-h-96 overflow-y-auto">
         <!-- System (required) -->
         <div>
           <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">System <span class="text-red-500">*</span></label>
@@ -559,7 +559,7 @@
         }
       </div>
 
-      <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
         <button (click)="closeSpawnPlan()" class="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
         <button
           (click)="executeSpawnPlan()"

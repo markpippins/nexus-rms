@@ -32,7 +32,7 @@ interface GraphLink {
   template: `
     <div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <!-- Toolbar -->
-      <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4 shadow-sm z-10 gap-3 flex-shrink-0 transition-colors">
+      <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-3 shadow-sm z-10 gap-3 flex-shrink-0 transition-colors">
         
         <!-- Schema Toggle Buttons -->
         <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 shadow-sm">
@@ -234,7 +234,7 @@ interface GraphLink {
 
           <!-- Legend Panel -->
           @if (showLegend()) {
-            <div class="absolute bottom-4 left-4 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 max-w-[240px] select-none">
+            <div class="absolute bottom-3 left-3 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 max-w-[240px] select-none">
               <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Legend</span>
                 <button 
@@ -439,7 +439,7 @@ interface GraphLink {
       </div>
 
       <!-- Status Bar -->
-      <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+      <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-3 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Knowledge
