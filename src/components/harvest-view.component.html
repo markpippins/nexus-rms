@@ -1,24 +1,9 @@
-<div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
-  <!-- Header -->
+<div class="flex-1 min-h-0 flex overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
+  <!-- LEFT PANE: Harvests (secondary toolbar + content) -->
+  <div class="flex-1 min-w-0 flex flex-col min-h-0">
+  <!-- Single toolbar: search / sort / distribution / advanced filters + summary chips -->
   <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-base font-semibold text-gray-800 dark:text-gray-200">
-        Harvests
-      </h2>
-      <!-- Summary chips -->
-      <div class="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
-        <span class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 font-medium tabular-nums">
-          {{ dataService.harvestTotalCount() }} total
-        </span>
-        <span class="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-medium tabular-nums"
-              title="Harvests with at least one candidate">
-          🧩 {{ dataService.harvestHasCandidatesCount() }} w/ cands
-        </span>
-      </div>
-    </div>
-    <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
-      <app-harvest-filter-bar placeholder="Search harvests..."></app-harvest-filter-bar>
-    </div>
+    <app-harvest-filter-bar placeholder="Search harvests..."></app-harvest-filter-bar>
   </div>
 
   <!-- Distribution Panel (collapsible strip above the split) -->
@@ -630,6 +615,23 @@
     } @else {
       <span>{{ dataService.harvestHasCandidatesCount() }} with candidates</span>
     }
+    </div>
+  </div>
+
+  <!-- Kanban resize handle -->
+  <div
+    class="w-1.5 flex-shrink-0 cursor-col-resize bg-gray-200/50 dark:bg-gray-700/50 hover:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-200 z-10"
+    [class.bg-blue-500]="kanbanResizing()"
+    [class.dark:bg-blue-600]="kanbanResizing()"
+    (mousedown)="startKanbanResize($event)"
+    title="Drag to resize the requirements board"
+  ></div>
+
+  <!-- RIGHT PANE: Requirements board (secondary toolbar + content) -->
+  <div class="shrink-0 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-hidden"
+       [class.select-none]="kanbanResizing()"
+       [style.width.px]="kanbanPaneWidth()">
+    <app-kanban-board [forceMode]="'board'"></app-kanban-board>
   </div>
 </div>
 

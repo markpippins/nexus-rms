@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
+import { KanbanBoardComponent } from './kanban-board.component';
 import { ToastService } from '../services/toast.service';
 import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
@@ -45,7 +46,7 @@ interface TranscriptBlock {
 @Component({
   selector: 'app-harvest-view',
   standalone: true,
-  imports: [CommonModule, FormsModule, HarvestFilterBarComponent],
+  imports: [CommonModule, FormsModule, HarvestFilterBarComponent, KanbanBoardComponent],
   templateUrl: './harvest-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -194,6 +195,43 @@ export class HarvestViewComponent {
     const moved = staged + promoted;
     return { total, staged, promoted, done, pct: Math.round((moved / total) * 100) };
   });
+
+  // ── Kanban board pane (resizable) ───────────────────────────
+  /** Default 1137px = 853px (640px + 1/3) widened by another 1/3. */
+  kanbanPaneWidth = signal(1137);
+  readonly MIN_KANBAN_WIDTH = 480;
+  readonly MAX_KANBAN_WIDTH = 1400;
+  kanbanResizing = signal(false);
+
+  /** Begin dragging the splitter between the harvests pane and the kanban pane. */
+  startKanbanResize(event: MouseEvent) {
+    event.preventDefault();
+    this.kanbanResizing.set(true);
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onKanbanMouseMove(event: MouseEvent) {
+    if (this.kanbanResizing()) {
+      event.preventDefault();
+      // Clamp between MIN and the smaller of MAX or 85% of the window,
+      // so the board can never push the harvests pane off-screen.
+      // NOTE: the splitter sits on the kanban's LEFT edge — dragging it
+      // right (movementX > 0) moves the divider toward the kanban, so the
+      // kanban shrinks; dragging left grows it. Inverted from the naive +
+      // mapping the user hit.
+      const cap = Math.min(this.MAX_KANBAN_WIDTH, Math.floor(window.innerWidth * 0.85));
+      this.kanbanPaneWidth.update(w =>
+        Math.max(this.MIN_KANBAN_WIDTH, Math.min(cap, w - event.movementX))
+      );
+    }
+  }
+
+  @HostListener('document:mouseup')
+  onKanbanMouseUp() {
+    if (this.kanbanResizing()) {
+      this.kanbanResizing.set(false);
+    }
+  }
 
   // ── Keyboard focus + overflow menu state ─────────────────────
   focusedCandidateId = signal<string | null>(null);

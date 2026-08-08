@@ -3,7 +3,7 @@
   <div class="flex-1 flex flex-col min-w-0 h-full">
     
     <!-- Action Toolbar (New, AI, Copy + Search) — visible in board/table/graph views (kanban views) -->
-    @if (dataService.viewMode() === 'board' || dataService.viewMode() === 'table' || dataService.viewMode() === 'graph') {
+    @if (displayMode() === 'board' || displayMode() === 'table' || displayMode() === 'graph') {
       <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4 shadow-sm z-10 gap-4 transition-colors">
         
         <!-- Action Buttons (Left) -->
@@ -75,7 +75,7 @@
     }
 
     <!-- Backlog / Todo Check Dashboard (Backlog #1) — shown when nothing selected in board/table mode -->
-    @if (!selectedFeature() && !selectedSubsystem() && !selectedSystem() && (dataService.viewMode() === 'board' || dataService.viewMode() === 'table')) {
+    @if (!selectedFeature() && !selectedSubsystem() && !selectedSystem() && (displayMode() === 'board' || displayMode() === 'table')) {
       <div class="px-3 pt-2 pb-1">
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-2 shadow-sm">
           <div class="flex items-center gap-2 mb-1.5">
@@ -140,25 +140,25 @@
 
     <!-- View Area (flex column so children can use flex-1 for proper scroll containment) -->
     <div class="flex-1 overflow-hidden relative flex flex-col min-h-0">
-      @if (dataService.viewMode() === 'graph') {
+      @if (displayMode() === 'graph') {
          <app-graph-view></app-graph-view>
-      } @else if (dataService.viewMode() === 'board') {
+      } @else if (displayMode() === 'board') {
          <app-board-view 
            [requirements]="filteredRequirements()"
            (editReq)="openEditModal($event)"
            (copyReqPrompt)="copyPrompt($event)"
            (duplicateReq)="openDuplicateModal($event)"
          ></app-board-view>
-      } @else if (dataService.viewMode() === 'table') {
+      } @else if (displayMode() === 'table') {
          <app-table-view 
            [requirements]="filteredRequirements()" 
            (editReq)="openEditModal($event)"
            (copyReqPrompt)="copyPrompt($event)"
            (duplicateReq)="openDuplicateModal($event)"
          ></app-table-view>
-      } @else if (dataService.viewMode() === 'sessions') {
+      } @else if (displayMode() === 'sessions') {
          <app-work-session-view></app-work-session-view>
-      } @else if (dataService.viewMode() === 'info') {
+      } @else if (displayMode() === 'info') {
          <app-system-info></app-system-info>
       } @else {
          <!-- Documentation View -->
@@ -402,13 +402,13 @@ This content will be used as context for the AI when generating requirements."
             </span>
         </div>
         <div class="text-gray-500 dark:text-gray-500">
-           @if(dataService.viewMode() === 'docs') {
+           @if(displayMode() === 'docs') {
                Context Documentation
-           } @else if (dataService.viewMode() === 'sessions') {
+           } @else if (displayMode() === 'sessions') {
                Context Export History
-           } @else if (dataService.viewMode() === 'audit') {
+           } @else if (displayMode() === 'audit') {
                Audit Files
-           } @else if (dataService.viewMode() === 'graph') {
+           } @else if (displayMode() === 'graph') {
                Graph View
            } @else {
                {{ filteredRequirements().length }} items found

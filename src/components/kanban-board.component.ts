@@ -1,5 +1,5 @@
 
-import { Component, inject, computed, signal, effect, HostListener } from '@angular/core';
+import { Component, inject, computed, signal, effect, HostListener, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
 import { ToastService } from '../services/toast.service';
@@ -25,7 +25,16 @@ export class KanbanBoardComponent {
   dataService = inject(DataService);
   toastService = inject(ToastService);
   aiService = inject(AiService);
-  
+
+  /**
+   * Optional sub-view override. When set (e.g. embedding the board inside the
+   * harvests view), render this sub-view regardless of the global view mode.
+   */
+  readonly forceMode = input<string | null>(null);
+
+  /** Effective mode: forced override or the global view mode. */
+  readonly displayMode = computed(() => this.forceMode() ?? this.dataService.viewMode());
+
   searchTerm = signal('');
   showModal = signal(false);
   isMaximized = signal(false);
