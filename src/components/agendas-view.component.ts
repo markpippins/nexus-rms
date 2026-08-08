@@ -326,7 +326,9 @@ export class AgendasViewComponent {
   }
 
   viewCandidate(sourceId: string) {
+    // Candidates/Intents views are hidden (collapse into Harvests). The app-level
+    // right panel reacts to selectedHarvestCandidateId and shows the document.
     this.dataService.selectedHarvestCandidateId.set(sourceId);
-    this.dataService.viewMode.set('candidates');
+    this.dataService.viewMode.set('harvests');
   }
 }

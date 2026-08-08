@@ -51,7 +51,7 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
@@ -633,16 +633,95 @@ export class DataService {
     }
   }
 
-  async listIntentRecords(limit?: number): Promise<{ intentRecords: any[]; count: number }> {
+  /**
+   * Raw intent-records list call. NOTE: the live nebula-srv returns { items, total }
+   * (not { intentRecords, count }) and honors page/pageSize only — limit is capped
+   * at 100 server-side. This unwraps to the shape the UI expects.
+   */
+  private async listIntentRecordsRaw(page: number, pageSize: number): Promise<{ intentRecords: any[]; count: number }> {
     try {
-      const qs = limit ? `?limit=${limit}` : '';
-      return await firstValueFrom(
-        this.http.get<{ intentRecords: any[]; count: number }>(`${this.apiUrl}/intent-records${qs}`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/intent-records?page=${page}&pageSize=${pageSize}`)
       );
+      return { intentRecords: res?.items ?? [], count: res?.total ?? 0 };
     } catch (err) {
       console.error('Failed to list intent records:', err);
       return { intentRecords: [], count: 0 };
     }
+  }
+
+  async listIntentRecords(limit?: number): Promise<{ intentRecords: any[]; count: number }> {
+    return this.listIntentRecordsRaw(1, limit ?? 100);
+  }
+
+  // ── Intent-record index (candidateId → records) ────────────────
+  // Candidates carry no intent-record ref; intent records link upward via
+  // candidateId. To show "📋 N intent records" badges and the doc-pane intent
+  // section we paginate the full index once (922 records ≈ 10 pages) and cache it.
+
+  readonly intentRecordsByCandidate = signal<Record<string, any[]>>({});
+  /** Full deduped intent-record list (linked + unlinked), newest first. */
+  readonly intentRecordsAll = signal<any[]>([]);
+  readonly intentRecordsIndexLoaded = signal(false);
+  private intentRecordsIndexLoading = false;
+
+  /** Paginate all intent records once and index them by candidateId. Idempotent. */
+  async loadIntentRecordIndex(): Promise<void> {
+    if (this.intentRecordsIndexLoaded() || this.intentRecordsIndexLoading) return;
+    this.intentRecordsIndexLoading = true;
+    try {
+      const first = await this.listIntentRecordsRaw(1, 100);
+      const all: any[] = [...first.intentRecords];
+      const pages = Math.max(1, Math.ceil(first.count / 100));
+      for (let p = 2; p <= pages; p++) {
+        const page = await this.listIntentRecordsRaw(p, 100);
+        all.push(...page.intentRecords);
+      }
+      // Pagination ordering is not fully deterministic server-side (ties on
+      // created_at), so pages can overlap — dedupe by record id.
+      const byCandidate: Record<string, any[]> = {};
+      const seen = new Set<string>();
+      const unique: any[] = [];
+      for (const r of all) {
+        if (!r.id || seen.has(r.id)) continue;
+        seen.add(r.id);
+        unique.push(r);
+        if (r.candidateId) {
+          (byCandidate[r.candidateId] ??= []).push(r);
+        }
+      }
+      unique.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      this.intentRecordsByCandidate.set(byCandidate);
+      this.intentRecordsAll.set(unique);
+      this.intentRecordsIndexLoaded.set(true);
+    } catch (err: any) {
+      console.error('Failed to load intent-record index:', err);
+    } finally {
+      this.intentRecordsIndexLoading = false;
+    }
+  }
+
+  /** Number of intent records linked to a candidate (0 until the index loads). */
+  intentRecordCountFor(candidateId: string): number {
+    return this.intentRecordsByCandidate()[candidateId]?.length ?? 0;
+  }
+
+  /** Intent records linked to a candidate, newest first. */
+  intentRecordsFor(candidateId: string): any[] {
+    const list = this.intentRecordsByCandidate()[candidateId] ?? [];
+    return [...list].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }
+
+  /** Update the status of one intent record in the cached index (post-promote). */
+  updateIntentRecordStatus(id: string, status: string) {
+    this.intentRecordsAll.update(list => list.map(r => r.id === id ? { ...r, status } : r));
+    this.intentRecordsByCandidate.update(map => {
+      const next: Record<string, any[]> = {};
+      for (const [cid, recs] of Object.entries(map)) {
+        next[cid] = recs.map(r => r.id === id ? { ...r, status } : r);
+      }
+      return next;
+    });
   }
 
   async getSystemIntentRecords(systemId: string): Promise<{ systemId: string; intentRecords: any[]; count: number }> {

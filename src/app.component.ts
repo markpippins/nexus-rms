@@ -7,8 +7,6 @@ import { AuditTreeComponent } from './components/audit-tree.component';
 import { AuditViewerComponent } from './components/audit-viewer.component';
 import { HarvestViewComponent } from './components/harvest-view.component';
 import { AnalysisViewComponent } from './components/analysis-view.component';
-import { CandidatesViewComponent } from './components/candidates-view.component';
-import { IntentRecordsViewComponent } from './components/intent-records-view.component';
 import { AgendasViewComponent } from './components/agendas-view.component';
 import { AgendaAnalysisViewComponent } from './components/agenda-analysis-view.component';
 import { SpecificationsViewComponent } from './components/specifications-view.component';
@@ -18,13 +16,13 @@ import { CpfFunnelViewComponent } from './components/cpf-funnel-view.component';
 import { OpenQuestionsViewComponent } from './components/open-questions-view.component';
 import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
-import { formatDate, lookupHierarchyName, getBlockTypeBadgeClasses } from './app/utils/view-helpers';
+import { formatDate, lookupHierarchyName, getBlockTypeBadgeClasses, getStatusColor, CANDIDATE_STATUS_COLORS } from './app/utils/view-helpers';
 import { UiEventBusService } from './app/services/ui-event-bus.service';
 import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
-  standalone: true,    imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, CandidatesViewComponent, IntentRecordsViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, CpfFunnelViewComponent, OpenQuestionsViewComponent, ToastComponent],
+  standalone: true,    imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, CpfFunnelViewComponent, OpenQuestionsViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -39,7 +37,9 @@ export class AppComponent {
 
   // ── Right Slide Panel (Backlog #4) ────────────────────────────
   showRightPanel = signal(false);
-  rightPanelWidth = signal(380);
+  rightPanelWidth = signal(520);
+  readonly MIN_RIGHT_PANEL_WIDTH = 320;
+  readonly MAX_RIGHT_PANEL_WIDTH = 760;
   isRightResizing = signal(false);
   harvestCandidates = signal<HarvestCandidate[]>([]);
   candidatesLoading = signal(false);
@@ -48,15 +48,29 @@ export class AppComponent {
 
   // ── Candidate Detail Panel State ─────────────────────────────
   promotingCandidateId = signal<string | null>(null);
+  promotingToRequirementId = signal<string | null>(null);
+  promotionError = signal<string | null>(null);
+
+  /** Detail fetched on demand when the selected candidate isn't in the hierarchy-scoped list. */
+  private selectedCandidateDetail = signal<HarvestCandidate | null>(null);
+  private candidateDetailRequestId = 0;
 
   selectedCandidate = computed(() => {
     const id = this.dataService.selectedHarvestCandidateId();
     if (!id) return null;
-    return this.harvestCandidates().find(c => c.id === id) || null;
+    return this.harvestCandidates().find(c => c.id === id) || this.selectedCandidateDetail();
+  });
+
+  /** Intent records linked to the candidate shown in the document pane. */
+  docCandidateIntentRecords = computed(() => {
+    const c = this.selectedCandidate();
+    if (!c) return [];
+    return this.dataService.intentRecordsFor(c.id);
   });
 
   closeCandidateDetail() {
     this.closeTranscript();
+    this.selectedCandidateDetail.set(null);
     this.dataService.selectedHarvestCandidateId.set(null);
   }
 
@@ -189,6 +203,10 @@ export class AppComponent {
     return lookupHierarchyName(this.dataService, id, type);
   }
 
+  getCandidateStatusClass(status: string): string {
+    return getStatusColor(status, CANDIDATE_STATUS_COLORS);
+  }
+
   async stageCandidate(candidate: HarvestCandidate) {
     this.promotingCandidateId.set(candidate.id);
     try {
@@ -225,6 +243,50 @@ export class AppComponent {
   spawnPlanFromPanel(candidate: HarvestCandidate) {
     // Set the cross-component signal — hierarchy-nav watches and opens its modal
     this.dataService.spawnPlanIntent.set(candidate);
+  }
+
+  /** Promote to requirement — mirrors the (hidden) Candidates view behavior. */
+  async promoteCandidateToRequirement(candidate: HarvestCandidate) {
+    this.promotingToRequirementId.set(candidate.id);
+    this.promotionError.set(null);
+    try {
+      const newReq = await this.dataService.promoteCandidateToRequirement(candidate.id);
+      if (newReq) {
+        await this.dataService.refreshRequirements();
+        if (newReq.systemId) this.dataService.selectedSystemId.set(newReq.systemId);
+        if (newReq.subsystemId) this.dataService.selectedSubsystemId.set(newReq.subsystemId);
+        if (newReq.featureId) this.dataService.selectedFeatureId.set(newReq.featureId);
+        this.dataService.viewMode.set('board');
+      } else {
+        this.promotionError.set('Failed to create requirement — check console for details');
+      }
+    } catch (err: any) {
+      this.promotionError.set(err.message || 'Promotion failed');
+    } finally {
+      this.promotingToRequirementId.set(null);
+    }
+  }
+
+  /** Promote an intent record to requirement (same server flow as the hidden Intents view). */
+  async promoteIntentRecordToRequirement(record: any) {
+    this.promotingToRequirementId.set(record.id);
+    this.promotionError.set(null);
+    try {
+      const newReq = await this.dataService.promoteIntentToRequirement(record.id);
+      if (newReq) {
+        await this.dataService.refreshRequirements();
+        if (newReq.systemId) this.dataService.selectedSystemId.set(newReq.systemId);
+        if (newReq.subsystemId) this.dataService.selectedSubsystemId.set(newReq.subsystemId);
+        if (newReq.featureId) this.dataService.selectedFeatureId.set(newReq.featureId);
+        this.dataService.viewMode.set('board');
+      } else {
+        this.promotionError.set('Failed to create requirement — check console for details');
+      }
+    } catch (err: any) {
+      this.promotionError.set(err.message || 'Promotion failed');
+    } finally {
+      this.promotingToRequirementId.set(null);
+    }
   }
 
   // ── Address Bar (Backlog #3) ──────────────────────────────────
@@ -282,8 +344,6 @@ export class AppComponent {
       harvests: 'Harvests',
       audit: 'Audit Files',
       analysis: 'Analysis',
-      candidates: 'Candidates',
-      intents: 'Intent Records',
       agendas: 'Agendas',
       'agenda-analysis': 'Agenda Analysis',
       specifications: 'Specifications',
@@ -312,7 +372,7 @@ export class AppComponent {
         }
       });
       this.dataService.getPreference<number>('rightPanelWidth').then(val => {
-        if (val && val >= 280 && val <= 600) {
+        if (val && val >= this.MIN_RIGHT_PANEL_WIDTH && val <= this.MAX_RIGHT_PANEL_WIDTH) {
           this.rightPanelWidth.set(val);
         }
       });
@@ -343,7 +403,22 @@ export class AppComponent {
       this.dataService.selectedFeatureId();
       // Clear the detail selection and close transcript when navigating hierarchy
       this.closeTranscript();
+      this.selectedCandidateDetail.set(null);
       this.dataService.selectedHarvestCandidateId.set(null);
+    });
+
+    // Fetch the candidate detail on demand when it's not in the hierarchy-scoped
+    // list (e.g. opened from the harvests view), and lazily warm the intent index.
+    effect(() => {
+      const id = this.dataService.selectedHarvestCandidateId();
+      if (!id) return;
+      this.dataService.loadIntentRecordIndex();
+      if (this.harvestCandidates().some(c => c.id === id)) return;
+      const requestId = ++this.candidateDetailRequestId;
+      this.dataService.getHarvestCandidate(id).then(cand => {
+        if (requestId !== this.candidateDetailRequestId || this.dataService.selectedHarvestCandidateId() !== id) return;
+        this.selectedCandidateDetail.set(cand);
+      });
     });
 
     // Auto-open right panel when a harvest candidate is selected for detail
@@ -456,8 +531,8 @@ export class AppComponent {
     if (this.isRightResizing()) {
       const viewportWidth = window.innerWidth;
       let newWidth = viewportWidth - event.clientX;
-      if (newWidth < 280) newWidth = 280;
-      if (newWidth > 600) newWidth = 600;
+      if (newWidth < this.MIN_RIGHT_PANEL_WIDTH) newWidth = this.MIN_RIGHT_PANEL_WIDTH;
+      if (newWidth > this.MAX_RIGHT_PANEL_WIDTH) newWidth = this.MAX_RIGHT_PANEL_WIDTH;
       this.rightPanelWidth.set(newWidth);
     }
   }
@@ -475,7 +550,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();
