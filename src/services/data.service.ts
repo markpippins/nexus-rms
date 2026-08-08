@@ -163,13 +163,21 @@ export class DataService {
   readonly harvests = signal<any[]>([]);
   readonly harvestsLoading = signal(false);
   readonly harvestsError = signal<string | null>(null);
+  /** Server-reported total harvests matching current filters (for load-more). */
+  readonly harvestTotalCount = signal(0);
+  private harvestPrefsLoaded = false;
 
   async fetchHarvests() {
+    if (!this.harvestPrefsLoaded) {
+      this.harvestPrefsLoaded = true;
+      await this.restoreHarvestPrefs();
+    }
     this.harvestsLoading.set(true);
     this.harvestsError.set(null);
     try {
       const data = await this.listHarvests({
-        limit: 200,
+        page: 1,
+        pageSize: 100,
         sort: this.harvestSortMode(),
         keyword: this.harvestKeywordFilter() || undefined,
         tag: this.harvestTagFilter() || undefined,
@@ -177,6 +185,8 @@ export class DataService {
         dateTo: this.harvestDateTo() || undefined,
       });
       this.harvests.set(data.harvests || []);
+      this.harvestTotalCount.set(data.count ?? (data.harvests || []).length);
+      this.persistHarvestPrefs();
     } catch (err: any) {
       this.harvestsError.set(err.message || 'Failed to fetch harvests');
     } finally {
@@ -184,9 +194,64 @@ export class DataService {
     }
   }
 
+  /** Append the next page of harvests (server-side offset pagination). */
+  async loadMoreHarvests() {
+    if (this.harvestsLoading() || this.harvests().length >= this.harvestTotalCount()) return;
+    this.harvestsLoading.set(true);
+    try {
+      const data = await this.listHarvests({
+        page: Math.floor(this.harvests().length / 100) + 1,
+        pageSize: 100,
+        sort: this.harvestSortMode(),
+        keyword: this.harvestKeywordFilter() || undefined,
+        tag: this.harvestTagFilter() || undefined,
+        dateFrom: this.harvestDateFrom() || undefined,
+        dateTo: this.harvestDateTo() || undefined,
+      });
+      const known = new Set(this.harvests().map((h: any) => h.id));
+      const fresh = (data.harvests || []).filter((h: any) => !known.has(h.id));
+      this.harvests.update(list => [...list, ...fresh]);
+      this.harvestTotalCount.set(data.count ?? this.harvests().length);
+    } catch (err: any) {
+      this.harvestsError.set(err.message || 'Failed to load more harvests');
+    } finally {
+      this.harvestsLoading.set(false);
+    }
+  }
+
+  /** Persist current harvest filter/sort prefs via the preferences API. */
+  private persistHarvestPrefs() {
+    this.savePreference('harvestView', {
+      sortMode: this.harvestSortMode(),
+      tagFilter: this.harvestTagFilter(),
+      hideEmpty: this.harvestHideEmpty(),
+      dateFrom: this.harvestDateFrom(),
+      dateTo: this.harvestDateTo(),
+    });
+  }
+
+  /** Restore saved harvest filter/sort prefs (called once before the first fetch). */
+  private async restoreHarvestPrefs() {
+    const prefs = await this.getPreference<any>('harvestView');
+    if (!prefs || typeof prefs !== 'object') return;
+    if (typeof prefs.sortMode === 'string' && this.harvestSortOptions.includes(prefs.sortMode)) {
+      this.harvestSortMode.set(prefs.sortMode);
+    }
+    if (typeof prefs.tagFilter === 'string') this.harvestTagFilter.set(prefs.tagFilter);
+    if (typeof prefs.hideEmpty === 'boolean') this.harvestHideEmpty.set(prefs.hideEmpty);
+    if (typeof prefs.dateFrom === 'string') this.harvestDateFrom.set(prefs.dateFrom);
+    if (typeof prefs.dateTo === 'string') this.harvestDateTo.set(prefs.dateTo);
+  }
+
   setHarvestSort(mode: string) {
     this.harvestSortMode.set(mode);
     this.fetchHarvests();
+  }
+
+  /** Toggle hide-empty (client-side filter) and persist immediately. */
+  setHarvestHideEmpty(value: boolean) {
+    this.harvestHideEmpty.set(value);
+    this.persistHarvestPrefs();
   }
 
   applyHarvestKeyword() {
@@ -460,12 +525,16 @@ export class DataService {
   //  HARVESTS
   // ══════════════════════════════════════════════════════════════════
 
-  async listHarvests(params?: { model?: string; limit?: number; offset?: number; sort?: string; keyword?: string; tag?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
+  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
     try {
       const qs = new URLSearchParams();
+      // NOTE: the live nebula-srv /api/harvests endpoint honors page/pageSize only
+      // (limit/offset are silently ignored). Map the legacy limit/offset args here.
+      const pageSize = params?.pageSize ?? params?.limit ?? 100;
+      const page = params?.page ?? (params?.offset ? Math.floor(params.offset / pageSize) + 1 : 1);
       if (params?.model) qs.set('model', params.model);
-      if (params?.limit) qs.set('limit', String(params.limit));
-      if (params?.offset) qs.set('offset', String(params.offset));
+      qs.set('page', String(Math.max(1, page)));
+      qs.set('pageSize', String(Math.min(100, Math.max(1, pageSize))));
       if (params?.sort) qs.set('sort', params.sort);
       if (params?.keyword) qs.set('keyword', params.keyword);
       if (params?.tag) qs.set('tag', params.tag);
@@ -492,13 +561,16 @@ export class DataService {
     }
   }
 
-  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; limit?: number; offset?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
+  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; limit?: number; offset?: number; page?: number; pageSize?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
     try {
       const qs = new URLSearchParams();
+      // NOTE: live nebula-srv honors page/pageSize only (limit/offset are ignored).
+      const pageSize = filters?.pageSize ?? filters?.limit ?? 100;
+      const page = filters?.page ?? (filters?.offset ? Math.floor(filters.offset / pageSize) + 1 : 1);
       if (filters?.harvestId) qs.set('harvestId', filters.harvestId);
       if (filters?.systemId) qs.set('systemId', filters.systemId);
-      if (filters?.limit) qs.set('limit', String(filters.limit));
-      if (filters?.offset) qs.set('offset', String(filters.offset));
+      qs.set('page', String(Math.max(1, page)));
+      qs.set('pageSize', String(Math.min(100, Math.max(1, pageSize))));
       const query = qs.toString();
       return await firstValueFrom(
         this.http.get<{ candidates: HarvestCandidate[]; count: number }>(`${this.apiUrl}/harvest-candidates${query ? '?' + query : ''}`)

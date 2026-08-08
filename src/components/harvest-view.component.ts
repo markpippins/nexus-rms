@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
 import { ToastService } from '../services/toast.service';
-import { formatDate, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
+import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
 
 interface HarvestEntry {
@@ -143,11 +143,60 @@ export class HarvestViewComponent {
 
   // Filter state
   hideCompleted = signal(false);
+  /** Status filter for the candidate inbox ('all' or a CandidateStatus). */
+  candidateStatusFilter = signal<string>('all');
+
+  readonly candidateStatusChips = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'linked', label: 'Linked' },
+    { key: 'staged', label: 'Staged' },
+    { key: 'promoted', label: 'Promoted' },
+    { key: 'rejected', label: 'Rejected' },
+  ];
+
+  /** Per-status counts for the filter chips. */
+  candidateStatusCounts = computed(() => {
+    const map: Record<string, number> = { pending: 0, linked: 0, staged: 0, promoted: 0, rejected: 0 };
+    for (const c of this.selectedHarvestCandidates()) {
+      const s = c.status || 'pending';
+      map[s] = (map[s] ?? 0) + 1;
+    }
+    return map;
+  });
 
   filteredCandidates = computed(() => {
-    if (!this.hideCompleted()) return this.selectedHarvestCandidates();
-    return this.selectedHarvestCandidates().filter(c => !c.completed);
+    let list = this.selectedHarvestCandidates();
+    if (this.hideCompleted()) list = list.filter(c => !c.completed);
+    const sf = this.candidateStatusFilter();
+    if (sf !== 'all') list = list.filter(c => (c.status || 'pending') === sf);
+    return list;
   });
+
+  /** The harvest object for the currently selected row (left pane). */
+  selectedHarvest = computed(() => {
+    const id = this.selectedHarvestId();
+    if (!id) return null;
+    return this.dataService.harvests().find(h => h.id === id) ?? null;
+  });
+
+  /** Staged/promoted/done breakdown for the selected harvest's loaded candidates. */
+  selectedHarvestProgress = computed(() => {
+    const cands = this.selectedHarvestCandidates();
+    const total = cands.length;
+    if (total === 0) return { total: 0, staged: 0, promoted: 0, done: 0, pct: 0 };
+    const staged = cands.filter(c => c.status === 'staged').length;
+    const promoted = cands.filter(c => c.status === 'promoted').length;
+    const done = cands.filter(c => c.completed).length;
+    const moved = staged + promoted;
+    return { total, staged, promoted, done, pct: Math.round((moved / total) * 100) };
+  });
+
+  // ── Keyboard focus + overflow menu state ─────────────────────
+  focusedCandidateId = signal<string | null>(null);
+  openMenuId = signal<string | null>(null);
+  candidateTotalCount = signal(0);
+  candidatesLoadingMore = signal(false);
 
   // Bulk selection state
   selectedCandidateIds = signal<Set<string>>(new Set());
@@ -176,18 +225,48 @@ export class HarvestViewComponent {
     if (this.selectedHarvestId() === id) {
       this.selectedHarvestId.set(null);
       this.selectedHarvestCandidates.set([]);
+      this.candidateTotalCount.set(0);
+      this.focusedCandidateId.set(null);
+      this.openMenuId.set(null);
       return;
     }
     this.selectedHarvestId.set(id);
     this.selectedCandidateIds.set(new Set()); // clear selection on harvest switch
+    this.candidateStatusFilter.set('all');
+    this.focusedCandidateId.set(null);
+    this.openMenuId.set(null);
     this.candidatesLoading.set(true);
     try {
-      const data = await this.dataService.listHarvestCandidates({ harvestId: id, limit: 100 });
+      const data = await this.dataService.listHarvestCandidates({ harvestId: id, page: 1, pageSize: 100 });
       this.selectedHarvestCandidates.set(data.candidates || []);
+      this.candidateTotalCount.set(data.count ?? (data.candidates || []).length);
     } catch (err: any) {
       console.error('Failed to fetch candidates:', err);
     } finally {
       this.candidatesLoading.set(false);
+    }
+  }
+
+  /** Append the next page of candidates for the selected harvest. */
+  async loadMoreCandidates() {
+    const hid = this.selectedHarvestId();
+    if (!hid || this.candidatesLoading() || this.candidatesLoadingMore()) return;
+    if (this.selectedHarvestCandidates().length >= this.candidateTotalCount()) return;
+    this.candidatesLoadingMore.set(true);
+    try {
+      const data = await this.dataService.listHarvestCandidates({
+        harvestId: hid,
+        page: Math.floor(this.selectedHarvestCandidates().length / 100) + 1,
+        pageSize: 100,
+      });
+      const known = new Set(this.selectedHarvestCandidates().map(c => c.id));
+      const fresh = (data.candidates || []).filter((c: HarvestCandidate) => !known.has(c.id));
+      this.selectedHarvestCandidates.update(list => [...list, ...fresh]);
+      this.candidateTotalCount.set(data.count ?? this.selectedHarvestCandidates().length);
+    } catch (err: any) {
+      console.error('Failed to load more candidates:', err);
+    } finally {
+      this.candidatesLoadingMore.set(false);
     }
   }
 
@@ -297,7 +376,7 @@ export class HarvestViewComponent {
     }
   }
 
-  async openTranscript(harvest: HarvestEntry) {
+  async openTranscript(harvest: HarvestEntry, anchorPhrase?: string) {
     // Reset find-in-file state for fresh transcript
     this.transcriptSearchQuery.set('');
     this.transcriptShowSearch.set(false);
@@ -315,11 +394,32 @@ export class HarvestViewComponent {
       this.transcriptSnapshotId.set(data.snapshotId);
       this.committedSegments.set(data.committedSegments || []);
       this.activeOverrides.set(data.activeOverrides || []);
+      if (anchorPhrase) this.anchorTranscriptTo(anchorPhrase);
     } catch (err: any) {
       console.error('Failed to load transcript:', err);
     } finally {
       this.transcriptLoading.set(false);
     }
+  }
+
+  /** Open the transcript for a candidate, anchored near its title text (heuristic search). */
+  openTranscriptForCandidate(harvest: HarvestEntry | null, candidate: HarvestCandidate | null) {
+    if (!harvest) return;
+    this.openTranscript(harvest, candidate?.title || undefined);
+  }
+
+  /** Heuristic anchor: search the transcript for the candidate title and jump to the first match. */
+  private anchorTranscriptTo(phrase: string) {
+    const tokens = phrase.split(/\s+/).filter(w => w.length > 3).slice(0, 4);
+    if (tokens.length === 0) return;
+    this.transcriptSearchQuery.set(tokens.join(' '));
+    this.transcriptShowSearch.set(true);
+    setTimeout(() => {
+      if (this.transcriptTotalMatches() > 0) {
+        this.transcriptSearchMatchIndex.set(0);
+        this.scrollToTranscriptMatch();
+      }
+    }, 60);
   }
 
   toggleTranscriptMaximize() {
@@ -716,39 +816,135 @@ export class HarvestViewComponent {
     }
   }
 
-  // ── Keyboard handling for transcript find-in-file ────────────
+  // ── Keyboard handling: transcript find-in-file + candidate triage ──
+
+  /** Close the overflow menu when clicking anywhere else. */
+  @HostListener('document:click')
+  closeMenuOnOutsideClick() {
+    if (this.openMenuId()) this.openMenuId.set(null);
+  }
+
+  private isTypingTarget(el: HTMLElement | null): boolean {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
 
   @HostListener('document:keydown', ['$event'])
   handleKeydown(e: KeyboardEvent) {
-    if (!this.transcriptOpen()) return;
+    if (this.transcriptOpen()) {
+      // Ctrl+F / Cmd+F — toggle transcript search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
+        e.preventDefault();
+        this.toggleTranscriptSearch();
+        return;
+      }
 
-    // Ctrl+F / Cmd+F — toggle transcript search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
-      e.preventDefault();
-      this.toggleTranscriptSearch();
+      // Escape — close search
+      if (e.key === 'Escape' && this.transcriptShowSearch()) {
+        this.transcriptShowSearch.set(false);
+        this.transcriptSearchQuery.set('');
+        return;
+      }
+
+      // Enter / Shift+Enter — navigate matches
+      if (e.key === 'Enter' && this.transcriptShowSearch()) {
+        e.preventDefault();
+        if (e.shiftKey) this.transcriptPrevMatch();
+        else this.transcriptNextMatch();
+      }
       return;
     }
 
-    // Escape — close search
-    if (e.key === 'Escape' && this.transcriptShowSearch()) {
-      this.transcriptShowSearch.set(false);
-      this.transcriptSearchQuery.set('');
+    // Candidate inbox triage (j/k move, Enter open, s stage, x reject, c done)
+    if (this.isTypingTarget(e.target as HTMLElement)) return;
+    const targetTag = (e.target as HTMLElement | null)?.tagName;
+    // Let native activation win on buttons/links (Enter/Space would both trigger).
+    if ((e.key === 'Enter' || e.key === ' ') && (targetTag === 'BUTTON' || targetTag === 'A')) return;
+    if (!this.selectedHarvestId() || this.filteredCandidates().length === 0) return;
+    const key = e.key;
+    if (key === 'j' || key === 'ArrowDown') {
+      e.preventDefault();
+      this.moveKeyboardFocus(1);
       return;
     }
-
-    // Enter / Shift+Enter — navigate matches
-    if (e.key === 'Enter' && this.transcriptShowSearch()) {
+    if (key === 'k' || key === 'ArrowUp') {
       e.preventDefault();
-      if (e.shiftKey) this.transcriptPrevMatch();
-      else this.transcriptNextMatch();
+      this.moveKeyboardFocus(-1);
+      return;
     }
+    const focused = this.filteredCandidates().find(c => c.id === this.focusedCandidateId());
+    if (!focused) return;
+    const harvest = this.selectedHarvest();
+    switch (key) {
+      case 'Enter':
+        e.preventDefault();
+        if (harvest) this.openTranscript(harvest, focused.title);
+        break;
+      case 's':
+        e.preventDefault();
+        if (focused.status === 'linked' || focused.status === 'pending') this.promoteCandidate(focused);
+        break;
+      case 'x':
+        e.preventDefault();
+        if (focused.status !== 'rejected' && focused.status !== 'promoted') this.rejectCandidate(focused);
+        break;
+      case 'c':
+        e.preventDefault();
+        this.toggleCandidateCompleted(focused);
+        break;
+    }
+  }
+
+  /** Move keyboard focus across the visible candidate list (wraps). */
+  moveKeyboardFocus(delta: number) {
+    const vis = this.filteredCandidates();
+    if (vis.length === 0) return;
+    const idx = vis.findIndex(c => c.id === this.focusedCandidateId());
+    const next = idx === -1 ? 0 : (idx + delta + vis.length) % vis.length;
+    this.focusedCandidateId.set(vis[next].id);
+    setTimeout(() => {
+      const el = document.getElementById('cand-' + this.focusedCandidateId());
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
+  }
+
+  /** Set keyboard focus when a candidate row is clicked. */
+  focusCandidate(candidate: HarvestCandidate) {
+    this.focusedCandidateId.set(candidate.id);
+  }
+
+  // ── Overflow menu (⋯) actions ───────────────────────────────
+
+  toggleCandidateMenu(candidateId: string) {
+    this.openMenuId.update(v => (v === candidateId ? null : candidateId));
+  }
+
+  onMenuTransform(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.transformToRequirement(candidate);
+  }
+
+  onMenuReject(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.rejectCandidate(candidate);
+  }
+
+  onMenuToggleCompleted(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.toggleCandidateCompleted(candidate);
+  }
+
+  onMenuTranscript(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.openTranscriptForCandidate(this.selectedHarvest(), candidate);
   }
 
   getStatusColor(status: string): string {
     return getStatusColor(status, CANDIDATE_STATUS_COLORS);
   }
 
-  readonly formatDate = formatDate;
+  readonly relativeTime = relativeTime;
 
   truncatePath(path: string): string {
     if (!path) return '';

@@ -34,6 +34,26 @@ export function formatFullDate(iso: string): string {
 }
 
 /**
+ * Format an epoch-ms / ISO timestamp as a relative time ("just now", "5m ago",
+ * "3h ago", "12d ago"). Falls back to a short absolute date beyond ~30 days.
+ */
+export function relativeTime(ts: string | number | null | undefined): string {
+  if (!ts) return '';
+  const t = typeof ts === 'number' ? ts : new Date(ts).getTime();
+  if (!Number.isFinite(t)) return '';
+  const diff = Date.now() - t;
+  const abs = Math.abs(diff);
+  const min = 60_000;
+  const hour = 3_600_000;
+  const day = 86_400_000;
+  if (abs < min) return 'just now';
+  if (abs < hour) return `${Math.round(abs / min)}m ago`;
+  if (abs < day) return `${Math.round(abs / hour)}h ago`;
+  if (abs < 30 * day) return `${Math.round(abs / day)}d ago`;
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/**
  * Return a Tailwind CSS class string for a status badge.
  * Uses the provided colorMap (status → classes), falling back to a neutral gray.
  */
