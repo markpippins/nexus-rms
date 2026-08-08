@@ -13,7 +13,6 @@ import { SpecificationsViewComponent } from './components/specifications-view.co
 import { ImplementationPlansViewComponent } from './components/implementation-plans-view.component';
 import { WorkRequestsViewComponent } from './components/work-requests-view.component';
 import { CpfFunnelViewComponent } from './components/cpf-funnel-view.component';
-import { OpenQuestionsViewComponent } from './components/open-questions-view.component';
 import { ToastComponent } from './components/toast.component';
 import { DataService } from './services/data.service';
 import { formatDate, lookupHierarchyName, getBlockTypeBadgeClasses, getStatusColor, CANDIDATE_STATUS_COLORS } from './app/utils/view-helpers';
@@ -22,7 +21,7 @@ import { HarvestCandidate } from './models/data.models';
 
 @Component({
   selector: 'app-root',
-  standalone: true,    imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, CpfFunnelViewComponent, OpenQuestionsViewComponent, ToastComponent],
+  standalone: true,    imports: [CommonModule, FormsModule, HierarchyNavComponent, KanbanBoardComponent, AuditTreeComponent, AuditViewerComponent, HarvestViewComponent, AnalysisViewComponent, AgendasViewComponent, AgendaAnalysisViewComponent, SpecificationsViewComponent, ImplementationPlansViewComponent, WorkRequestsViewComponent, CpfFunnelViewComponent, ToastComponent],
   templateUrl: './app.component.html'
 })
 export class AppComponent {
@@ -54,6 +53,8 @@ export class AppComponent {
   /** Detail fetched on demand when the selected candidate isn't in the hierarchy-scoped list. */
   private selectedCandidateDetail = signal<HarvestCandidate | null>(null);
   private candidateDetailRequestId = 0;
+  /** Last candidate the doc pane showed — used to reset the open-questions expander on switch. */
+  private lastDetailCandidateId: string | null = null;
 
   selectedCandidate = computed(() => {
     const id = this.dataService.selectedHarvestCandidateId();
@@ -68,8 +69,81 @@ export class AppComponent {
     return this.dataService.intentRecordsFor(c.id);
   });
 
+  /** Open questions linked to the candidate shown in the document pane. */
+  docCandidateOpenQuestions = computed(() => {
+    const c = this.selectedCandidate();
+    if (!c) return [];
+    return this.dataService.openQuestionsFor(c.id);
+  });
+
+  // ── Open Questions expander state ────────────────────────────
+  openQuestionsExpanded = signal(false);
+  openQuestionAnswersLoading = signal(false);
+  openQuestionAnswers = signal<Record<string, any[]>>({});
+
+  /** Toggle the inline open-questions expander; fetch answer threads on open. */
+  toggleOpenQuestions() {
+    if (this.openQuestionsExpanded()) {
+      this.openQuestionsExpanded.set(false);
+      return;
+    }
+    this.openQuestionsExpanded.set(true);
+    this.loadOpenQuestionAnswers();
+  }
+
+  /** Fetch the answer thread for every linked open question (parallel, independent). */
+  private async loadOpenQuestionAnswers() {
+    const questions = this.docCandidateOpenQuestions();
+    if (questions.length === 0) return;
+    this.openQuestionAnswersLoading.set(true);
+    try {
+      const results = await Promise.allSettled(
+        questions.map(q =>
+          this.dataService.getOpenQuestionAnswers(q.id)
+            .then(({ answers }) => [q.id, answers] as const)
+        )
+      );
+      const map: Record<string, any[]> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          const [id, answers] = r.value;
+          map[id] = answers;
+        } else {
+          console.error('Failed to load answers for an open question:', r.reason);
+        }
+      }
+      this.openQuestionAnswers.set(map);
+    } finally {
+      this.openQuestionAnswersLoading.set(false);
+    }
+  }
+
+  /** Tailwind classes for open-question status badges. */
+  getOpenQuestionStatusClass(status: string): string {
+    const map: Record<string, string> = {
+      OPEN: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      RESOLVED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      WONT_FIX: 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+    };
+    return map[status] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
+  /** Tailwind classes for open-question category badges. */
+  getOpenQuestionCategoryClass(category: string): string {
+    const map: Record<string, string> = {
+      NEEDS_SPEC: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      BLOCKER: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      CLARIFICATION: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      TECHNICAL: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+      PROCESS: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    };
+    return map[category] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
   closeCandidateDetail() {
     this.closeTranscript();
+    this.openQuestionsExpanded.set(false);
+    this.openQuestionAnswers.set({});
     this.selectedCandidateDetail.set(null);
     this.dataService.selectedHarvestCandidateId.set(null);
   }
@@ -350,7 +424,6 @@ export class AppComponent {
       plans: 'Implementation Plans',
       'work-requests': 'Work Requests',
       'cpf-funnel': 'CPF Funnel',
-      'open-questions': 'Open Questions',
     };
     return labels[this.dataService.viewMode()] || this.dataService.viewMode();
   });
@@ -403,16 +476,26 @@ export class AppComponent {
       this.dataService.selectedFeatureId();
       // Clear the detail selection and close transcript when navigating hierarchy
       this.closeTranscript();
+      this.openQuestionsExpanded.set(false);
+      this.openQuestionAnswers.set({});
       this.selectedCandidateDetail.set(null);
       this.dataService.selectedHarvestCandidateId.set(null);
     });
 
     // Fetch the candidate detail on demand when it's not in the hierarchy-scoped
     // list (e.g. opened from the harvests view), and lazily warm the intent index.
+    // Also reset the open-questions expander whenever the doc switches candidates
+    // (the grid / panel list set selectedHarvestCandidateId directly).
     effect(() => {
       const id = this.dataService.selectedHarvestCandidateId();
       if (!id) return;
+      if (id !== this.lastDetailCandidateId) {
+        this.lastDetailCandidateId = id;
+        this.openQuestionsExpanded.set(false);
+        this.openQuestionAnswers.set({});
+      }
       this.dataService.loadIntentRecordIndex();
+      this.dataService.loadOpenQuestionIndex();
       if (this.harvestCandidates().some(c => c.id === id)) return;
       const requestId = ++this.candidateDetailRequestId;
       this.dataService.getHarvestCandidate(id).then(cand => {
@@ -550,7 +633,7 @@ export class AppComponent {
   }
 
   // ── View Mode Switching ───────────────────────────────────────
-  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'): void {
+  setViewMode(mode: 'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'): void {
     this.dataService.viewMode.set(mode);
     if (mode === 'audit') {
       this.dataService.fetchAuditFiles();

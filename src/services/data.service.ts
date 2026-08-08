@@ -51,7 +51,7 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel' | 'open-questions'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
@@ -1043,6 +1043,47 @@ export class DataService {
       console.error('Failed to get open question answers:', err);
       return { answers: [], count: 0 };
     }
+  }
+
+  // ── Open-question index (candidateId → open questions) ────────
+  // Open questions link upward via candidate_id (snake_case rows from
+  // /api/open-questions). The list endpoint returns every OPEN question in
+  // one response (no pagination), so we fetch once and index by candidate.
+
+  readonly openQuestionsByCandidate = signal<Record<string, any[]>>({});
+  readonly openQuestionsIndexLoaded = signal(false);
+  private openQuestionsIndexLoading = false;
+
+  /** Fetch all open questions once and index them by candidateId. Idempotent. */
+  async loadOpenQuestionIndex(): Promise<void> {
+    if (this.openQuestionsIndexLoaded() || this.openQuestionsIndexLoading) return;
+    this.openQuestionsIndexLoading = true;
+    try {
+      const { questions } = await this.listOpenQuestions();
+      const byCandidate: Record<string, any[]> = {};
+      for (const q of questions || []) {
+        if (q.candidate_id) {
+          (byCandidate[q.candidate_id] ??= []).push(q);
+        }
+      }
+      this.openQuestionsByCandidate.set(byCandidate);
+      this.openQuestionsIndexLoaded.set(true);
+    } catch (err: any) {
+      console.error('Failed to load open-question index:', err);
+    } finally {
+      this.openQuestionsIndexLoading = false;
+    }
+  }
+
+  /** Number of open questions linked to a candidate (0 until the index loads). */
+  openQuestionCountFor(candidateId: string): number {
+    return this.openQuestionsByCandidate()[candidateId]?.length ?? 0;
+  }
+
+  /** Open questions linked to a candidate, newest first. */
+  openQuestionsFor(candidateId: string): any[] {
+    const list = this.openQuestionsByCandidate()[candidateId] ?? [];
+    return [...list].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   }
 
   // ══════════════════════════════════════════════════════════════════

@@ -221,8 +221,9 @@ export class HarvestViewComponent {
 
   constructor() {
     this.dataService.fetchHarvests();
-    // Warm the intent-record index (fire-and-forget) so 📋 badges populate.
+    // Warm the intent-record + open-question indexes (fire-and-forget) so 📋/❓ badges populate.
     this.dataService.loadIntentRecordIndex();
+    this.dataService.loadOpenQuestionIndex();
   }
 
   async toggleHarvest(id: string) {
