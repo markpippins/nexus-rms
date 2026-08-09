@@ -17,6 +17,10 @@ export class DataService {
   readonly requirements = signal<Requirement[]>([]);
   readonly workSessions = signal<WorkSession[]>([]);
 
+  // ── Inventory Counts (tree badges) ──────────────────────────────
+  /** Flat map: nodeId → { reqCount, planCount, candidateCount, ... } */
+  readonly inventoryCounts = signal<Record<string, Record<string, number>>>({});
+
   // ── Loading / Error Signals ────────────────────────────────────
   readonly loading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
@@ -368,6 +372,7 @@ export class DataService {
     this.loading.set(true);
     try {
       await this.fetchAll();
+      this.fetchInventory(); // fire-and-forget — badges load async
       await this.fetchPreferences();
       if (this.systems().length === 0) {
         await this.seedFromServer();
@@ -382,6 +387,61 @@ export class DataService {
 
   async refreshData() {
     await this.fetchAll();
+    this.fetchInventory();
+  }
+
+  /** Fetch inventory rollup counts for tree badges. Fire-and-forget. */
+  async fetchInventory() {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<{ systems: any[]; subsystems: any[]; features: any[]; totals: any }>(
+          `${this.apiUrl}/inventory`
+        )
+      );
+      const counts: Record<string, Record<string, number>> = {};
+      for (const s of res.systems || []) {
+        counts[s.systemId] = {
+          subsystems: s.subsystemCount || 0,
+          features: s.featureCount || 0,
+          folders: s.folderCount || 0,
+          requirements: s.reqCount || 0,
+          plans: s.planCount || 0,
+          candidates: s.candidateCount || 0,
+          extLinks: s.extLinkCount || 0,
+        };
+      }
+      for (const sub of res.subsystems || []) {
+        counts[sub.subsystemId] = {
+          features: sub.featureCount || 0,
+          requirements: sub.reqCount || 0,
+          plans: sub.planCount || 0,
+          candidates: sub.candidateCount || 0,
+        };
+      }
+      for (const feat of res.features || []) {
+        counts[feat.featureId] = {
+          requirements: feat.reqCount || 0,
+          plans: feat.planCount || 0,
+          candidates: feat.candidateCount || 0,
+        };
+      }
+      this.inventoryCounts.set(counts);
+    } catch (err) {
+      console.warn('Failed to fetch inventory counts:', err);
+    }
+  }
+
+  /** Get badge label for a tree node, or empty string if zero counts. */
+  badgeLabel(nodeId: string): string {
+    const c = this.inventoryCounts()[nodeId];
+    if (!c) return '';
+    const parts: string[] = [];
+    if (c.requirements) parts.push(`${c.requirements} req`);
+    if (c.plans) parts.push(`${c.plans} plan`);
+    if (c.candidates) parts.push(`${c.candidates} cand`);
+    if (c.features) parts.push(`${c.features} feat`);
+    if (c.subsystems) parts.push(`${c.subsystems} sub`);
+    return parts.slice(0, 3).join(' · ');
   }
 
   async refreshRequirements() {

@@ -80,6 +80,9 @@
             <input type="text" [(ngModel)]="editingName" (keydown.enter)="saveEdit()" (keydown.escape)="cancelEdit()" (blur)="saveEdit()" class="flex-1 bg-transparent text-sm font-semibold border-b border-blue-500 focus:outline-none text-gray-800 dark:text-gray-200" autofocus>
           } @else {
             <span class="font-semibold text-gray-800 dark:text-gray-200 text-sm flex-1 truncate">{{ system.name }}</span>
+          @if (dataService.badgeLabel(system.id); as label) {
+            <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5 shrink-0 hidden sm:inline">{{ label }}</span>
+          }
           }
           <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button 
@@ -166,6 +169,9 @@
                     <input type="text" [(ngModel)]="editingName" (keydown.enter)="saveEdit()" (keydown.escape)="cancelEdit()" (blur)="saveEdit()" class="flex-1 bg-transparent text-sm border-b border-blue-500 focus:outline-none text-gray-600 dark:text-gray-300" autofocus>
                   } @else {
                     <span class="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{{ sub.name }}</span>
+                    @if (dataService.badgeLabel(sub.id); as label) {
+                      <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5 shrink-0 hidden sm:inline">{{ label }}</span>
+                    }
                   }
                   <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
@@ -228,6 +234,9 @@
                             <input type="text" [(ngModel)]="editingName" (keydown.enter)="saveEdit()" (keydown.escape)="cancelEdit()" (blur)="saveEdit()" class="flex-1 bg-transparent text-xs border-b border-blue-500 focus:outline-none text-blue-700 dark:text-blue-300" autofocus>
                           } @else {
                             <span class="flex-1 truncate pl-2">{{ feat.name }}</span>
+                            @if (dataService.badgeLabel(feat.id); as label) {
+                              <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5 shrink-0 hidden sm:inline">{{ label }}</span>
+                            }
                           }
                           <div class="opacity-0 group-hover:opacity-100 flex gap-0.5">
                               <button 
