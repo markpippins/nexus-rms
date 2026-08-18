@@ -618,21 +618,6 @@
     </div>
   </div>
 
-  <!-- Kanban resize handle -->
-  <div
-    class="w-1.5 flex-shrink-0 cursor-col-resize bg-gray-200/50 dark:bg-gray-700/50 hover:bg-blue-500 dark:hover:bg-blue-600 transition-colors duration-200 z-10"
-    [class.bg-blue-500]="kanbanResizing()"
-    [class.dark:bg-blue-600]="kanbanResizing()"
-    (mousedown)="startKanbanResize($event)"
-    title="Drag to resize the requirements board"
-  ></div>
-
-  <!-- RIGHT PANE: Requirements board (secondary toolbar + content) -->
-  <div class="shrink-0 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-hidden"
-       [class.select-none]="kanbanResizing()"
-       [style.width.px]="kanbanPaneWidth()">
-    <app-kanban-board [forceMode]="'board'"></app-kanban-board>
-  </div>
 </div>
 
 <!-- ── Transcript Drawer (right slide-over) ──────────────────── -->
