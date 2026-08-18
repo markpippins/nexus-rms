@@ -1,7 +1,7 @@
 import { computed, Signal } from '@angular/core';
 import { DataService } from '../../services/data.service';
 
-/** Status color map shared by harvest-view, analysis-view, and candidates-view. */
+/** Status color map shared by harvest-view and analysis-view. */
 export const CANDIDATE_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
   linked: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
