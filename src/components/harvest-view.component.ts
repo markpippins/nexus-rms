@@ -153,14 +153,15 @@ export class HarvestViewComponent {
     { key: 'all', label: 'All' },
     { key: 'pending', label: 'Pending' },
     { key: 'linked', label: 'Linked' },
-    { key: 'staged', label: 'Staged' },
+    { key: 'useful', label: 'Staged' },
     { key: 'promoted', label: 'Promoted' },
     { key: 'rejected', label: 'Rejected' },
+    { key: 'superseded', label: 'Superseded' },
   ];
 
   /** Per-status counts for the filter chips. */
   candidateStatusCounts = computed(() => {
-    const map: Record<string, number> = { pending: 0, linked: 0, staged: 0, promoted: 0, rejected: 0 };
+    const map: Record<string, number> = { pending: 0, linked: 0, useful: 0, promoted: 0, rejected: 0, superseded: 0 };
     for (const c of this.selectedHarvestCandidates()) {
       const s = c.status || 'pending';
       map[s] = (map[s] ?? 0) + 1;
@@ -188,7 +189,7 @@ export class HarvestViewComponent {
     const cands = this.selectedHarvestCandidates();
     const total = cands.length;
     if (total === 0) return { total: 0, staged: 0, promoted: 0, done: 0, pct: 0 };
-    const staged = cands.filter(c => c.status === 'staged').length;
+    const staged = cands.filter(c => c.status === 'useful').length;
     const promoted = cands.filter(c => c.status === 'promoted').length;
     const done = cands.filter(c => c.completed).length;
     const moved = staged + promoted;
@@ -623,9 +624,9 @@ export class HarvestViewComponent {
     this.promotingId.set(candidate.id);
     try {
       await this.dataService.promoteHarvestCandidate(candidate.id);
-      // Update local state
+      // Update local state (the server's state machine stores this as 'useful')
       const updated = this.selectedHarvestCandidates().map(c =>
-        c.id === candidate.id ? { ...c, status: 'staged' } : c
+        c.id === candidate.id ? { ...c, status: 'useful' } : c
       );
       this.selectedHarvestCandidates.set(updated);
     } catch (err: any) {
@@ -769,7 +770,7 @@ export class HarvestViewComponent {
   // ── Promote to Plan ──────────────────────────────────────────
 
   get stagedCandidates(): HarvestCandidate[] {
-    return this.selectedHarvestCandidates().filter(c => c.status === 'staged');
+    return this.selectedHarvestCandidates().filter(c => c.status === 'useful');
   }
 
   async transformToRequirement(candidate: HarvestCandidate) {

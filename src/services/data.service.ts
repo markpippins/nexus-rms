@@ -185,6 +185,7 @@ export class DataService {
         sort: this.harvestSortMode(),
         keyword: this.harvestKeywordFilter() || undefined,
         tag: this.harvestTagFilter() || undefined,
+        search: this.listViewSearchTerm() || undefined,
         dateFrom: this.harvestDateFrom() || undefined,
         dateTo: this.harvestDateTo() || undefined,
       });
@@ -209,6 +210,7 @@ export class DataService {
         sort: this.harvestSortMode(),
         keyword: this.harvestKeywordFilter() || undefined,
         tag: this.harvestTagFilter() || undefined,
+        search: this.listViewSearchTerm() || undefined,
         dateFrom: this.harvestDateFrom() || undefined,
         dateTo: this.harvestDateTo() || undefined,
       });
@@ -304,6 +306,17 @@ export class DataService {
   applyHarvestTagFilter(tag: string) {
     this.harvestTagFilter.set(tag);
     this.fetchHarvests();
+  }
+
+  private harvestSearchTimer: any = null;
+
+  /** Set the harvest-list search term and refetch from the server (debounced).
+   *  Server-side search is required because the list is paginated (100 rows) —
+   *  the client-side filter alone can never find harvests beyond the loaded page. */
+  setHarvestSearchTerm(term: string) {
+    this.listViewSearchTerm.set(term);
+    if (this.harvestSearchTimer) clearTimeout(this.harvestSearchTimer);
+    this.harvestSearchTimer = setTimeout(() => this.fetchHarvests(), 300);
   }
 
   toggleHarvestFilters() {
@@ -585,7 +598,7 @@ export class DataService {
   //  HARVESTS
   // ══════════════════════════════════════════════════════════════════
 
-  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
+  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; search?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
     try {
       const qs = new URLSearchParams();
       // NOTE: the live nebula-srv /api/harvests endpoint honors page/pageSize only
@@ -598,6 +611,7 @@ export class DataService {
       if (params?.sort) qs.set('sort', params.sort);
       if (params?.keyword) qs.set('keyword', params.keyword);
       if (params?.tag) qs.set('tag', params.tag);
+      if (params?.search) qs.set('search', params.search);
       if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
       if (params?.dateTo) qs.set('dateTo', params.dateTo);
       const query = qs.toString();
@@ -1256,8 +1270,10 @@ export class DataService {
   }
 
   async promoteHarvestCandidate(id: string): Promise<{ ok: boolean; result: string }> {
+    // NOTE: the server's state machine stores this as 'useful' — 'staged' is not a
+    // valid transition and the promote endpoint 400s on it. The UI displays it as "Staged".
     const res = await firstValueFrom(
-      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'staged' })
+      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'useful' })
     );
     return res;
   }
