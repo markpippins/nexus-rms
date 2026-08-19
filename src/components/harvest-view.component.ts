@@ -146,9 +146,6 @@ export class HarvestViewComponent {
   /** Status filter for the candidate inbox ('all' or a CandidateStatus). */
   candidateStatusFilter = signal<string>('all');
 
-  /** Middle-pane mode: candidate inbox (default) or the minimal intent-records browse. */
-  inboxMode = signal<'candidates' | 'intents'>('candidates');
-
   readonly candidateStatusChips = [
     { key: 'all', label: 'All' },
     { key: 'pending', label: 'Pending' },
@@ -348,8 +345,7 @@ export class HarvestViewComponent {
 
   constructor() {
     this.dataService.fetchHarvests();
-    // Warm the intent-record + open-question indexes (fire-and-forget) so 📋/❓ badges populate.
-    this.dataService.loadIntentRecordIndex();
+    // Warm the open-question index (fire-and-forget) so ❓ badges populate.
     this.dataService.loadOpenQuestionIndex();
 
     // Tree filters the harvests: refetch whenever the hierarchy selection changes,
@@ -1037,8 +1033,6 @@ export class HarvestViewComponent {
     const targetTag = (e.target as HTMLElement | null)?.tagName;
     // Let native activation win on buttons/links (Enter/Space would both trigger).
     if ((e.key === 'Enter' || e.key === ' ') && (targetTag === 'BUTTON' || targetTag === 'A')) return;
-    // Triage keys apply to the candidate inbox only — not the intent-records browse.
-    if (this.inboxMode() === 'intents') return;
     if (!this.selectedHarvestId() || this.filteredCandidates().length === 0) return;
     const key = e.key;
     if (key === 'j' || key === 'ArrowDown') {
@@ -1090,51 +1084,6 @@ export class HarvestViewComponent {
   /** Set keyboard focus when a candidate row is clicked. */
   focusCandidate(candidate: HarvestCandidate) {
     this.focusedCandidateId.set(candidate.id);
-  }
-
-  /** Open the slide-out document for a candidate (auto-opens the app right panel). */
-  openCandidateDoc(candidate: HarvestCandidate) {
-    this.focusedCandidateId.set(candidate.id);
-    this.dataService.selectedHarvestCandidateId.set(candidate.id);
-  }
-
-  /** Open the slide-out document for a candidate by id (from an intent-record row). */
-  openCandidateDocById(candidateId: string) {
-    this.dataService.selectedHarvestCandidateId.set(candidateId);
-  }
-
-  /** Toggle the middle pane between the candidate inbox and the intent-records browse. */
-  toggleInboxMode() {
-    this.inboxMode.set(this.inboxMode() === 'intents' ? 'candidates' : 'intents');
-    if (this.inboxMode() === 'intents') this.dataService.loadIntentRecordIndex();
-  }
-
-  /** Tailwind classes for intent-record status badges. */
-  getIntentStatusClass(status: string): string {
-    const map: Record<string, string> = {
-      draft: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-      pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-      approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-      promoted: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      implemented: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    };
-    return map[status] || 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
-  }
-
-  /** Promote an intent record to a requirement from the minimal browse (stays in place). */
-  async promoteIntentRecord(record: any) {
-    try {
-      const result = await this.dataService.promoteIntentToRequirement(record.id);
-      if (result) {
-        this.dataService.updateIntentRecordStatus(record.id, 'promoted');
-        this.toastService.show(`"${(record.title || 'Intent').slice(0, 40)}${(record.title || '').length > 40 ? '…' : ''}" promoted to requirement`, 'success');
-      } else {
-        this.toastService.show('Failed to promote intent record', 'error');
-      }
-    } catch (err: any) {
-      this.toastService.show(err.message || 'Promotion failed', 'error');
-    }
   }
 
   // ── Overflow menu (⋯) actions ───────────────────────────────

@@ -127,8 +127,8 @@ export class AgendasViewComponent {
     this.openingAgenda.set(true);
 
     try {
-      // 1. Get full agenda with items, resolve candidate IDs from both direct
-      //    harvest_candidate items AND intent_record items that link to candidates.
+      // 1. Get full agenda with items, resolve candidate IDs from direct
+      //    harvest_candidate items.
       const full = await this.dataService.getAgenda(agenda.id);
       const items = full?.items || [];
 
@@ -138,33 +138,10 @@ export class AgendasViewComponent {
         .map((item: any) => item.source_id)
         .filter(Boolean);
 
-      // Intent record items — fetch each and extract its candidate_id (with source_ref fallback)
-      const intentRecordItems = items.filter((item: any) => item.source_type === 'intent_record');
-      const intentCandidateIds: string[] = [];
-      let unresolvableIntentRecords = 0;
-      if (intentRecordItems.length > 0) {
-        const intentResults = await Promise.allSettled(
-          intentRecordItems.map((item: any) => this.dataService.getIntentRecord(item.source_id))
-        );
-        for (const result of intentResults) {
-          if (result.status === 'fulfilled' && result.value) {
-            // Prefer candidate_id, fall back to source_ref (both point to the same harvest candidate)
-            const cid = result.value.candidate_id || result.value.source_ref;
-            if (cid) {
-              intentCandidateIds.push(cid);
-            } else {
-              unresolvableIntentRecords++;
-            }
-          } else {
-            unresolvableIntentRecords++;
-          }
-        }
-      }
-
       // Assessment items — can't resolve to candidates, track for warning
       const assessmentCount = items.filter((item: any) => item.source_type === 'assessment').length;
 
-      const agendaCandidateIds = new Set<string>([...directCandidateIds, ...intentCandidateIds]);
+      const agendaCandidateIds = new Set<string>(directCandidateIds);
 
       if (agendaCandidateIds.size === 0) {
         // If there are assessment items, still navigate so the user can see them
@@ -180,8 +157,6 @@ export class AgendasViewComponent {
         }
         const parts: string[] = [];
         if (items.length > 0) parts.push(`${items.length} total items`);
-        if (intentRecordItems.length > 0) parts.push(`${intentRecordItems.length} intent records`);
-        if (unresolvableIntentRecords > 0) parts.push(`${unresolvableIntentRecords} unresolvable intent records`);
         this.toastService.show(
           'No harvest candidates found' + (parts.length > 0 ? ' — ' + parts.join(', ') : '') + '.',
           'info'
