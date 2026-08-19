@@ -188,6 +188,9 @@ export class DataService {
         search: this.listViewSearchTerm() || undefined,
         dateFrom: this.harvestDateFrom() || undefined,
         dateTo: this.harvestDateTo() || undefined,
+        systemId: this.selectedSystemId() || undefined,
+        subsystemId: this.selectedSubsystemId() || undefined,
+        featureId: this.selectedFeatureId() || undefined,
       });
       this.harvests.set(data.harvests || []);
       this.harvestTotalCount.set(data.count ?? (data.harvests || []).length);
@@ -213,6 +216,9 @@ export class DataService {
         search: this.listViewSearchTerm() || undefined,
         dateFrom: this.harvestDateFrom() || undefined,
         dateTo: this.harvestDateTo() || undefined,
+        systemId: this.selectedSystemId() || undefined,
+        subsystemId: this.selectedSubsystemId() || undefined,
+        featureId: this.selectedFeatureId() || undefined,
       });
       const known = new Set(this.harvests().map((h: any) => h.id));
       const fresh = (data.harvests || []).filter((h: any) => !known.has(h.id));
@@ -598,7 +604,7 @@ export class DataService {
   //  HARVESTS
   // ══════════════════════════════════════════════════════════════════
 
-  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; search?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
+  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; search?: string; dateFrom?: string; dateTo?: string; systemId?: string; subsystemId?: string; featureId?: string }): Promise<{ harvests: any[]; count: number }> {
     try {
       const qs = new URLSearchParams();
       // NOTE: the live nebula-srv /api/harvests endpoint honors page/pageSize only
@@ -614,6 +620,9 @@ export class DataService {
       if (params?.search) qs.set('search', params.search);
       if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
       if (params?.dateTo) qs.set('dateTo', params.dateTo);
+      if (params?.systemId) qs.set('systemId', params.systemId);
+      if (params?.subsystemId) qs.set('subsystemId', params.subsystemId);
+      if (params?.featureId) qs.set('featureId', params.featureId);
       const query = qs.toString();
       return await firstValueFrom(
         this.http.get<{ harvests: any[]; count: number }>(`${this.apiUrl}/harvests${query ? '?' + query : ''}`)

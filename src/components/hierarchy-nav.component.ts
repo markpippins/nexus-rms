@@ -327,126 +327,11 @@ export class HierarchyNavComponent {
       return sorted;
   });
 
-  // ── Harvest Candidates Panel ────────────────────────────────────
-  harvestCandidates = signal<HarvestCandidate[]>([]);
-  candidatesLoading = signal(false);
-  candidatesCount = signal(0);
-  showCandidatesPanel = signal(false);
-  private candidatesRequestId = 0; // race-condition guard
-
-  // Candidate context (what level are we viewing candidates for)
-  candidateContext = computed(() => {
-    const sysId = this.dataService.selectedSystemId();
-    const subId = this.dataService.selectedSubsystemId();
-    const featId = this.dataService.selectedFeatureId();
-    if (featId) return { level: 'Feature' as const, id: featId, label: 'feature' };
-    if (subId) return { level: 'Subsystem' as const, id: subId, label: 'subsystem' };
-    if (sysId) return { level: 'System' as const, id: sysId, label: 'system' };
-    return null;
-  });
-
-  // Fetch candidates when selection changes (with race-condition guard)
-  private candidatesEffect = effect(() => {
-    const ctx = this.candidateContext();
-    if (!ctx) {
-      this.harvestCandidates.set([]);
-      this.candidatesCount.set(0);
-      return;
-    }
-
-    const requestId = ++this.candidatesRequestId;
-    this.candidatesLoading.set(true);
-    let promise: Promise<{ candidates: HarvestCandidate[]; count: number }>;
-
-    if (ctx.level === 'System') {
-      promise = this.dataService.getSystemHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
-    } else if (ctx.level === 'Subsystem') {
-      promise = this.dataService.getSubsystemHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
-    } else {
-      promise = this.dataService.getFeatureHarvestCandidates(ctx.id).then(r => ({ candidates: r.candidates, count: r.count }));
-    }
-
-    promise.then(({ candidates, count }) => {
-      // Ignore stale responses
-      if (requestId !== this.candidatesRequestId) return;
-      this.harvestCandidates.set(candidates);
-      this.candidatesCount.set(count);
-      this.candidatesLoading.set(false);
-      if (count > 0) this.showCandidatesPanel.set(true);
-    }).catch(() => {
-      if (requestId !== this.candidatesRequestId) return;
-      this.candidatesLoading.set(false);
-    });
-  });
-
-  toggleCandidatesPanel() {
-    this.showCandidatesPanel.update(v => !v);
-  }
-
-  // ── Completed Toggle ────────────────────────────────────────────
-  togglingCompletedId = signal<string | null>(null);
-
-  async toggleCandidateCompleted(candidate: HarvestCandidate) {
-    const previousValue = candidate.completed;
-    const newValue = !previousValue;
-    const actionLabel = newValue ? 'completed' : 'uncompleted';
-
-    this.togglingCompletedId.set(candidate.id);
-
-    // Optimistic update
-    this.harvestCandidates.update(list =>
-      list.map(c => c.id === candidate.id ? { ...c, completed: newValue } : c)
-    );
-
-    try {
-      const result = await this.dataService.updateHarvestCandidate(candidate.id, { completed: newValue });
-      if (result) {
-        this.toastService.show(`"${candidate.title.slice(0, 40)}${candidate.title.length > 40 ? '…' : ''}" marked as ${actionLabel}`, 'success');
-      } else {
-        // Rollback on null response
-        this.harvestCandidates.update(list =>
-          list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
-        );
-        this.toastService.show('Failed to update candidate status', 'error');
-      }
-    } catch (err: any) {
-      console.error('Failed to toggle candidate completed:', err);
-      // Rollback
-      this.harvestCandidates.update(list =>
-        list.map(c => c.id === candidate.id ? { ...c, completed: previousValue } : c)
-      );
-      this.toastService.show('Failed to update candidate status', 'error');
-    } finally {
-      this.togglingCompletedId.set(null);
-    }
-  }
-
-  isTogglingCompleted(id: string): boolean {
-    return this.togglingCompletedId() === id;
-  }
-
   // ── Spawn Plan Flow ─────────────────────────────────────────────
   showSpawnPlanModal = signal(false);
   spawnPlanCandidate = signal<HarvestCandidate | null>(null);
 
-  /** Select a candidate and open its detail in the right slide-out panel */
-  viewCandidateDetail(candidate: HarvestCandidate) {
-    // Toggle off if already selected
-    if (this.dataService.selectedHarvestCandidateId() === candidate.id) {
-      this.dataService.selectedHarvestCandidateId.set(null);
-    } else {
-      this.dataService.selectedHarvestCandidateId.set(candidate.id);
-    }
-  }
-
-  /** Select a candidate and auto-expand its transcript in the right panel */
-  viewCandidateTranscript(candidate: HarvestCandidate, event: Event) {
-    event.stopPropagation();
-    this.dataService.selectedHarvestCandidateId.set(candidate.id);
-    this.dataService.autoExpandTranscript.set(true);
-  }
-
-  /** Watch for spawn plan intent from the right panel detail view */
+  /** Watch for spawn plan intent (harvest-view detail actions set the signal). */
   private spawnPlanIntentEffect = effect(() => {
     const candidate = this.dataService.spawnPlanIntent();
     if (candidate) {
@@ -501,18 +386,6 @@ export class HierarchyNavComponent {
       this.spawnPlanLoading.set(false);
       if (result) {
         this.spawnPlanResult.set(`Plan spawned! Requirement "${result.requirement.title}" created${result.crossReference ? ' with cross-reference' : ''}.`);
-        // Refresh candidates
-        const ctx = this.candidateContext();
-        if (ctx) {
-          this.candidatesLoading.set(true);
-          if (ctx.level === 'System') {
-            this.dataService.getSystemHarvestCandidates(ctx.id).then(r => {
-              this.harvestCandidates.set(r.candidates);
-              this.candidatesCount.set(r.count);
-              this.candidatesLoading.set(false);
-            });
-          }
-        }
         // Refresh requirements from server
         this.dataService.refreshRequirements();
       } else {

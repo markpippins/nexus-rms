@@ -434,8 +434,11 @@
                   [class]="focusedCandidateId() === candidate.id
                     ? 'bg-amber-50/60 dark:bg-amber-900/10'
                     : ''"
+                  [class]="detailCandidateId() === candidate.id
+                    ? 'bg-blue-50/60 dark:bg-blue-900/10'
+                    : ''"
                   [class.opacity-60]="candidate.completed"
-                  (click)="openCandidateDoc(candidate)"
+                  (click)="toggleCandidateDetail(candidate)"
                 >
                   <div class="flex items-start justify-between gap-3">
                     <div class="flex items-start gap-2.5 flex-1 min-w-0">
@@ -478,11 +481,6 @@
                           }
                           @if (candidate.subsystemId) {
                             <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
-                          }
-                          @if (dataService.intentRecordCountFor(candidate.id) > 0) {
-                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400" title="Intent records linked to this candidate">
-                              📋 {{ dataService.intentRecordCountFor(candidate.id) }}
-                            </span>
                           }
                           @if (dataService.openQuestionCountFor(candidate.id) > 0) {
                             <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400" title="Open questions linked to this candidate">
@@ -565,6 +563,157 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- ═══ Inline Candidate Detail (consolidated drawer functionality) ═══ -->
+                  @if (detailCandidateId() === candidate.id) {
+                    <div class="mt-2 pl-6 border-l-2 border-blue-200 dark:border-blue-800 space-y-4">
+                      <!-- Description -->
+                      @if (candidate.intentDescription) {
+                        <div class="space-y-1">
+                          <h4 class="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Description</h4>
+                          <p class="text-xs text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{{ candidate.intentDescription }}</p>
+                        </div>
+                      }
+
+                      <!-- Tags -->
+                      @if (candidate.tags?.length) {
+                        <div class="space-y-1">
+                          <h4 class="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Tags</h4>
+                          <div class="flex flex-wrap gap-1.5">
+                            @for (tag of candidate.tags; track tag) {
+                              <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ tag }}</span>
+                            }
+                          </div>
+                        </div>
+                      }
+
+                      <!-- Hierarchy labels -->
+                      <div class="flex items-center gap-2 flex-wrap">
+                        @if (candidate.systemId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" title="Linked to system">{{ getHierarchyLabel(candidate.systemId, 'system') }}</span>
+                        }
+                        @if (candidate.subsystemId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400" title="Linked to subsystem">{{ getHierarchyLabel(candidate.subsystemId, 'subsystem') }}</span>
+                        }
+                        @if (candidate.featureId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" title="Linked to feature">{{ getHierarchyLabel(candidate.featureId, 'feature') }}</span>
+                        }
+                      </div>
+
+                      <!-- Source meta + dates -->
+                      <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 flex-wrap">
+                        @if (candidate.harvestSource) {
+                          <span class="font-mono truncate max-w-[220px]" [title]="candidate.harvestSource">{{ candidate.harvestSource }}</span>
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        }
+                        <span>Created {{ formatDate(candidate.created_at) }}</span>
+                        <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        <span>Updated {{ formatDate(candidate.updated_at) }}</span>
+                        @if (candidate.valid_from) {
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                          <span>From {{ formatDate(candidate.valid_from) }}</span>
+                        }
+                        @if (candidate.valid_until) {
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                          <span>Until {{ formatDate(candidate.valid_until) }}</span>
+                        }
+                      </div>
+
+                      <!-- Open Questions expander -->
+                      @if (docCandidateOpenQuestions().length > 0) {
+                        <div>
+                          <button
+                            (click)="toggleOpenQuestions(); $event.stopPropagation()"
+                            class="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+                          >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            {{ openQuestionsExpanded() ? 'Hide Open Questions' : 'Open Questions' }}
+                            @if (docCandidateOpenQuestions().length > 0) {
+                              <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium">{{ docCandidateOpenQuestions().length }}</span>
+                            }
+                          </button>
+                          @if (openQuestionsExpanded()) {
+                            <div class="mt-2 space-y-2">
+                              @for (q of docCandidateOpenQuestions(); track q.id) {
+                                <div class="rounded-lg border border-gray-100 dark:border-gray-700 p-2.5">
+                                  <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium" [class]="getOpenQuestionStatusClass(q.status)">{{ q.status }}</span>
+                                    @if (q.category) {
+                                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium" [class]="getOpenQuestionCategoryClass(q.category)">{{ q.category }}</span>
+                                    }
+                                    @if (q.blocking) {
+                                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Blocking</span>
+                                    }
+                                  </div>
+                                  @if (q.description) {
+                                    <p class="text-[11px] text-gray-700 dark:text-slate-300 mt-1 leading-relaxed">{{ q.description }}</p>
+                                  }
+                                  @if ((openQuestionAnswers()[q.id] || []).length > 0) {
+                                    <div class="mt-2 space-y-1.5 border-t border-gray-50 dark:border-gray-700/50 pt-2">
+                                      @for (answer of openQuestionAnswers()[q.id]; track answer.id) {
+                                        <div class="text-[10px] text-gray-600 dark:text-slate-400 leading-relaxed">
+                                          <span class="font-medium text-gray-500 dark:text-slate-500">↳</span> {{ answer.content || answer.body }}
+                                        </div>
+                                      }
+                                    </div>
+                                  } @else if (openQuestionAnswersLoading()) {
+                                    <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
+                                      <svg class="animate-spin w-2.5 h-2.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                      Loading answers…
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+
+                      <!-- Actions (consolidated from the removed drawer) -->
+                      @if (promotionError()) {
+                        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 flex items-center gap-2">
+                          <span class="text-[10px] text-red-700 dark:text-red-400">{{ promotionError() }}</span>
+                        </div>
+                      }
+                      <div class="flex flex-wrap gap-1.5 pt-1">
+                        @if (candidate.systemId && candidate.status !== 'promoted') {
+                          <button
+                            (click)="promoteCandidateToRequirement(candidate); $event.stopPropagation()"
+                            [disabled]="promotingToRequirementId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            Promote to Requirement
+                          </button>
+                        }
+                        <button
+                          (click)="spawnPlanFromPanel(candidate); $event.stopPropagation()"
+                          class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500 text-white hover:bg-purple-600 transition-colors shadow-sm"
+                        >
+                          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                          Spawn Plan
+                        </button>
+                        @if (candidate.status === 'linked' || candidate.status === 'pending') {
+                          <button
+                            (click)="promoteCandidate(candidate); $event.stopPropagation()"
+                            [disabled]="promotingId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                          >
+                            Stage
+                          </button>
+                        }
+                        @if (candidate.status !== 'rejected' && candidate.status !== 'promoted') {
+                          <button
+                            (click)="onMenuReject(candidate); $event.stopPropagation()"
+                            [disabled]="promotingId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            ✕ Reject
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>

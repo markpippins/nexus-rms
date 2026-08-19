@@ -1,10 +1,10 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, inject, signal, computed, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
 import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
 import { ToastService } from '../services/toast.service';
-import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
+import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses, formatDate, lookupHierarchyName } from '../app/utils/view-helpers';
 import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
 
 interface HarvestEntry {
@@ -177,6 +177,132 @@ export class HarvestViewComponent {
     return list;
   });
 
+  // ── Inline candidate detail (consolidated from the removed right slide panel) ──
+  /** Candidate whose detail is expanded inline in the inbox. */
+  detailCandidateId = signal<string | null>(null);
+  private detailRequestId = 0;
+
+  /** The candidate shown in the inline detail (falls back to fetched detail). */
+  detailCandidate = computed(() => {
+    const id = this.detailCandidateId();
+    if (!id) return null;
+    return this.selectedHarvestCandidates().find(c => c.id === id) || null;
+  });
+
+  /** Open questions linked to the candidate shown in the inline detail. */
+  docCandidateOpenQuestions = computed(() => {
+    const c = this.detailCandidate();
+    if (!c) return [];
+    return this.dataService.openQuestionsFor(c.id);
+  });
+
+  // ── Open Questions expander state ────────────────────────────
+  openQuestionsExpanded = signal(false);
+  openQuestionAnswersLoading = signal(false);
+  openQuestionAnswers = signal<Record<string, any[]>>({});
+
+  toggleOpenQuestions() {
+    if (this.openQuestionsExpanded()) {
+      this.openQuestionsExpanded.set(false);
+      return;
+    }
+    this.openQuestionsExpanded.set(true);
+    this.loadOpenQuestionAnswers();
+  }
+
+  /** Fetch the answer thread for every linked open question (parallel, independent). */
+  private async loadOpenQuestionAnswers() {
+    const questions = this.docCandidateOpenQuestions();
+    if (questions.length === 0) return;
+    this.openQuestionAnswersLoading.set(true);
+    try {
+      const results = await Promise.allSettled(
+        questions.map(q =>
+          this.dataService.getOpenQuestionAnswers(q.id)
+            .then(({ answers }) => [q.id, answers] as const)
+        )
+      );
+      const map: Record<string, any[]> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          const [id, answers] = r.value;
+          map[id] = answers;
+        } else {
+          console.error('Failed to load answers for an open question:', r.reason);
+        }
+      }
+      this.openQuestionAnswers.set(map);
+    } finally {
+      this.openQuestionAnswersLoading.set(false);
+    }
+  }
+
+  getOpenQuestionStatusClass(status: string): string {
+    const map: Record<string, string> = {
+      OPEN: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      RESOLVED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      WONT_FIX: 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+    };
+    return map[status] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
+  getOpenQuestionCategoryClass(category: string): string {
+    const map: Record<string, string> = {
+      NEEDS_SPEC: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      BLOCKER: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      CLARIFICATION: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      TECHNICAL: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+      PROCESS: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    };
+    return map[category] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
+  /** Toggle the inline detail for a candidate (closing any other open detail). */
+  toggleCandidateDetail(candidate: HarvestCandidate) {
+    this.detailCandidateId.update(v => (v === candidate.id ? null : candidate.id));
+    this.openQuestionsExpanded.set(false);
+    this.openQuestionAnswers.set({});
+    this.dataService.selectedHarvestCandidateId.set(
+      this.detailCandidateId() ? candidate.id : null
+    );
+  }
+
+  getHierarchyLabel(id: string, type: 'system' | 'subsystem' | 'feature'): string {
+    return lookupHierarchyName(this.dataService, id, type);
+  }
+
+  readonly formatDate = formatDate;
+
+  /** Open the spawn plan modal for a candidate (hierarchy-nav watches the signal). */
+  spawnPlanFromPanel(candidate: HarvestCandidate) {
+    this.dataService.spawnPlanIntent.set(candidate);
+  }
+
+  /** Promote the detail candidate to a requirement (same flow as the removed drawer). */
+  promotingToRequirementId = signal<string | null>(null);
+  promotionError = signal<string | null>(null);
+
+  async promoteCandidateToRequirement(candidate: HarvestCandidate) {
+    this.promotingToRequirementId.set(candidate.id);
+    this.promotionError.set(null);
+    try {
+      const newReq = await this.dataService.promoteCandidateToRequirement(candidate.id);
+      if (newReq) {
+        await this.dataService.refreshRequirements();
+        if (newReq.systemId) this.dataService.selectedSystemId.set(newReq.systemId);
+        if (newReq.subsystemId) this.dataService.selectedSubsystemId.set(newReq.subsystemId);
+        if (newReq.featureId) this.dataService.selectedFeatureId.set(newReq.featureId);
+        this.dataService.viewMode.set('board');
+      } else {
+        this.promotionError.set('Failed to create requirement — check console for details');
+      }
+    } catch (err: any) {
+      this.promotionError.set(err.message || 'Promotion failed');
+    } finally {
+      this.promotingToRequirementId.set(null);
+    }
+  }
+
   /** The harvest object for the currently selected row (left pane). */
   selectedHarvest = computed(() => {
     const id = this.selectedHarvestId();
@@ -225,6 +351,49 @@ export class HarvestViewComponent {
     // Warm the intent-record + open-question indexes (fire-and-forget) so 📋/❓ badges populate.
     this.dataService.loadIntentRecordIndex();
     this.dataService.loadOpenQuestionIndex();
+
+    // Tree filters the harvests: refetch whenever the hierarchy selection changes,
+    // and clear the selected harvest when its context no longer applies.
+    effect(() => {
+      this.dataService.selectedSystemId();
+      this.dataService.selectedSubsystemId();
+      this.dataService.selectedFeatureId();
+      this.dataService.fetchHarvests();
+      if (this.selectedHarvestId()) {
+        this.selectedHarvestId.set(null);
+        this.selectedHarvestCandidates.set([]);
+        this.candidateTotalCount.set(0);
+        this.focusedCandidateId.set(null);
+        this.detailCandidateId.set(null);
+      }
+    });
+
+    // External detail requests (e.g. agendas-view sets selectedHarvestCandidateId and
+    // switches to harvests): find the candidate's harvest, select it, and expand the
+    // inline detail so the drawer behavior survives in the content pane.
+    effect(() => {
+      const id = this.dataService.selectedHarvestCandidateId();
+      if (!id) return;
+      if (this.selectedHarvestCandidates().some(c => c.id === id)) {
+        this.detailCandidateId.set(id);
+        return;
+      }
+      if (this.dataService.viewMode() !== 'harvests') return;
+      const requestId = ++this.detailRequestId;
+      this.dataService.getHarvestCandidate(id).then(cand => {
+        if (requestId !== this.detailRequestId) return;
+        if (!cand?.harvest_id) return;
+        if (this.selectedHarvestId() !== cand.harvest_id) {
+          this.toggleHarvest(cand.harvest_id).then(() => {
+            if (this.dataService.selectedHarvestCandidateId() === id) {
+              this.detailCandidateId.set(id);
+            }
+          });
+        } else {
+          this.detailCandidateId.set(id);
+        }
+      });
+    });
   }
 
   async toggleHarvest(id: string) {
