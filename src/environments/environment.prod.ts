@@ -1,13 +1,15 @@
 export const environment = {
-  production: true,
-  // Canonical live target: nebula-srv:3101. Override at build time with
-  // NEBULA_API_URL (e.g. a remote host) without source edits.
+  production: false,
+  // LAC single-config resolution (thread 83d2fd5c): ONE url rule for every
+  // build mode — NEBULA_API_URL wins when set; otherwise the relative /api
+  // base, which works through proxy.conf.json (dev) and same-origin proxies
+  // (deployed). No absolute localhost default here: targets come from env.
   apiUrl: (() => {
     try {
       // @ts-ignore
-      return (typeof process !== 'undefined' && process.env && process.env['NEBULA_API_URL']) || 'http://localhost:3101/api';
+      return (typeof process !== 'undefined' && process.env && process.env['NEBULA_API_URL']) || '/api';
     } catch {
-      return 'http://localhost:3101/api';
+      return '/api';
     }
   })(),
   uiEventBusUrl: (() => {
@@ -18,6 +20,7 @@ export const environment = {
       return 'http://localhost:3200';
     }
   })(),
+  // Try to auto-detect API key from global scope (polyfill) or default to empty.
   API_KEY: (() => {
     try {
       // @ts-ignore

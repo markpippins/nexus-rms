@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ng serve",
     "build": "ng build",
-    "preview": "ng serve --configuration=production"
+    "preview": "ng serve --configuration=production",
+    "test": "vitest run --root src"
   },
   "dependencies": {
     "@angular/build": "^21.0.0",
@@ -23,7 +24,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "typescript": "~5.8.2"
+    "happy-dom": "^20.11.6",
+    "typescript": "~5.8.2",
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "tar": "^7.5.19"

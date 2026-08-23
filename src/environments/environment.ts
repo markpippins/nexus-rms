@@ -1,7 +1,9 @@
 export const environment = {
   production: false,
-  // Dev default: relative /api routed through proxy.conf.json → nebula-srv:3101.
-  // Override at build time with NEBULA_API_URL to point elsewhere.
+  // LAC single-config resolution (thread 83d2fd5c): ONE url rule for every
+  // build mode — NEBULA_API_URL wins when set; otherwise the relative /api
+  // base, which works through proxy.conf.json (dev) and same-origin proxies
+  // (deployed). No absolute localhost default here: targets come from env.
   apiUrl: (() => {
     try {
       // @ts-ignore
@@ -19,7 +21,6 @@ export const environment = {
     }
   })(),
   // Try to auto-detect API key from global scope (polyfill) or default to empty.
-  // In a real Angular CLI build, this value would be set here or replaced.
   API_KEY: (() => {
     try {
       // @ts-ignore
