@@ -354,12 +354,12 @@ export class HierarchyNavComponent {
     this.spawnPlanCandidate.set(candidate);
     // Pre-populate from current selection
     const sysId = this.dataService.selectedSystemId();
-    this.spawnPlanSystemId = candidate.system_id || sysId || '';
-    this.spawnPlanSubsystemId = candidate.subsystem_id || this.dataService.selectedSubsystemId() || '';
-    this.spawnPlanFeatureId = candidate.feature_id || this.dataService.selectedFeatureId() || '';
+    this.spawnPlanSystemId = candidate.systemId || sysId || '';
+    this.spawnPlanSubsystemId = candidate.subsystemId || this.dataService.selectedSubsystemId() || '';
+    this.spawnPlanFeatureId = candidate.featureId || this.dataService.selectedFeatureId() || '';
     this.spawnPlanPlanRef = '';
     this.spawnPlanTitle = candidate.title || '';
-    this.spawnPlanDescription = candidate.intent_description || '';
+    this.spawnPlanDescription = candidate.intentDescription || '';
     this.spawnPlanResult.set(null);
     this.showSpawnPlanModal.set(true);
   }

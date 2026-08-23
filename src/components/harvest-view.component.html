@@ -190,9 +190,10 @@
 
     <!-- RIGHT: Candidate inbox -->
     <div class="flex-1 min-w-0 flex flex-col bg-gray-50 dark:bg-gray-900">
-      @if (selectedHarvest()) {
-        <!-- Inbox header -->
-        <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+      <!-- Inbox header -->
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+        @if (selectedHarvest()) {
+          <!-- Harvest-specific header -->
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
@@ -232,40 +233,56 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
-
-          <!-- Promote to Agenda bar -->
-          @if (stagedCandidates.length > 0) {
-            <div class="mt-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-lg flex items-center justify-between gap-2">
-              <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                {{ stagedCandidates.length }} staged candidate{{ stagedCandidates.length !== 1 ? 's' : '' }}
-              </span>
-              <div class="flex items-center gap-2">
-                @if (promoteToAgendaResult()) {
-                  <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToAgendaResult() }}</span>
-                  <button (click)="promoteToAgendaResult.set(null)" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                } @else {
-                  <button
-                    (click)="promoteToAgenda()"
-                    [disabled]="promotingToAgenda()"
-                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                  >
-                    @if (promotingToAgenda()) {
-                      <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    } @else {
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    }
-                    Promote to Agenda
-                  </button>
+        } @else {
+          <!-- Default header: all candidates -->
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                All Candidates
+n                @if (dataService.selectedSystemId() || dataService.selectedSubsystemId() || dataService.selectedFeatureId()) {
+                  <span class="text-xs font-normal text-gray-400 dark:text-gray-500 ml-2">filtered by hierarchy</span>
                 }
               </div>
+              <div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
+                {{ candidatePoolTotal() }} candidates from {{ dataService.harvests().length }} harvests
+              </div>
             </div>
-          }
-        </div>
+          </div>
+        }
 
-        <!-- Candidate filter row -->
-        @if (!candidatesLoading() && selectedHarvestCandidates().length > 0) {
+        <!-- Promote to Agenda bar -->
+        @if (selectedHarvest() && stagedCandidates.length > 0) {
+          <div class="mt-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-lg flex items-center justify-between gap-2">
+            <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              {{ stagedCandidates.length }} staged candidate{{ stagedCandidates.length !== 1 ? 's' : '' }}
+            </span>
+            <div class="flex items-center gap-2">
+              @if (promoteToAgendaResult()) {
+                <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToAgendaResult() }}</span>
+                <button (click)="promoteToAgendaResult.set(null)" class="text-gray-400 hover:text-gray-600">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              } @else {
+                <button
+                  (click)="promoteToAgenda()"
+                  [disabled]="promotingToAgenda()"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  @if (promotingToAgenda()) {
+                    <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  } @else {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  }
+                  Promote to Agenda
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Candidate filter row -->
+      @if (!(candidatesLoading() || candidatePoolLoading()) && filteredCandidates().length > 0) {
           <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap bg-gray-50/50 dark:bg-gray-800/50 flex-shrink-0">
             <div class="flex items-center gap-1 flex-wrap">
               @for (chip of candidateStatusChips; track chip.key) {
@@ -333,15 +350,18 @@
 
         <!-- Candidate list -->
         <div class="flex-1 overflow-y-auto min-h-0">
-          @if (candidatesLoading()) {
+          @if (candidatesLoading() || candidatePoolLoading()) {
             <div class="flex items-center justify-center py-16">
               <svg class="animate-spin h-6 w-6 text-amber-500" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
               </svg>
             </div>
-          } @else if (selectedHarvestCandidates().length === 0) {
-            <div class="p-8 text-center text-xs text-gray-400 dark:text-gray-500">No candidates in this harvest.</div>
+          } @else if (filteredCandidates().length === 0 && (selectedHarvestId() ? selectedHarvestCandidates().length === 0 : candidatePool().length === 0)) {
+            <div class="p-8 text-center text-xs text-gray-400 dark:text-gray-500">
+              @if (selectedHarvestId()) { No candidates in this harvest. }
+              @else { No candidates found. }
+            </div>
           } @else if (filteredCandidates().length === 0) {
             <div class="p-8 text-center text-xs text-gray-400 dark:text-gray-500">
               @if (hideCompleted()) { All candidates are completed. }
@@ -377,7 +397,7 @@
                       >
                       <div class="flex-1 min-w-0">
                         <button
-                          (click)="openTranscriptForCandidate(selectedHarvest(), candidate); $event.stopPropagation()"
+                          (click)="openTranscriptForCandidate(null, candidate); $event.stopPropagation()"
                           class="text-left"
                           title="Open transcript, anchored near this candidate"
                         >
@@ -525,22 +545,55 @@
                         }
                       </div>
 
+                      <!-- Segment Sets expander -->
+                      <div class="space-y-1">
+                        <button
+                          (click)="$event.stopPropagation()"
+                          class="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
+                          {{ candidateSegmentSetsLoading() ? 'Loading segments…' : (candidateSegmentSets().length + ' Segment Set' + (candidateSegmentSets().length !== 1 ? 's' : '')) }}
+                        </button>
+                        @if (candidateSegmentSets().length > 0) {
+                          <div class="space-y-1 pl-2 border-l border-blue-100 dark:border-blue-900">
+                            @for (ss of candidateSegmentSets(); track ss.id) {
+                              <div class="flex items-start gap-2 text-[10px]">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 mt-1 flex-shrink-0"></span>
+                                <div class="min-w-0">
+                                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ ss.name || ss.id }}</span>
+                                  @if (ss.description) {
+                                    <span class="text-gray-400 dark:text-gray-500 ml-1">— {{ ss.description }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        } @else if (!candidateSegmentSetsLoading()) {
+                          <button
+                            (click)="openTranscriptForCandidate(null, candidate); $event.stopPropagation()"
+                            class="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors pl-2"
+                          >
+                            View full transcript →
+                          </button>
+                        }
+                      </div>
+
                       <!-- Source meta + dates -->
                       <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 flex-wrap">
                         @if (candidate.harvestSource) {
                           <span class="font-mono truncate max-w-[220px]" [title]="candidate.harvestSource">{{ candidate.harvestSource }}</span>
                           <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
                         }
-                        <span>Created {{ formatDate(candidate.created_at) }}</span>
+                        <span>Created {{ formatDate(candidate.createdAt) }}</span>
                         <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                        <span>Updated {{ formatDate(candidate.updated_at) }}</span>
-                        @if (candidate.valid_from) {
+                        <span>Updated {{ formatDate(candidate.updatedAt) }}</span>
+                        @if (candidate.validFrom) {
                           <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                          <span>From {{ formatDate(candidate.valid_from) }}</span>
+                          <span>From {{ formatDate(candidate.validFrom) }}</span>
                         }
-                        @if (candidate.valid_until) {
+                        @if (candidate.validUntil) {
                           <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                          <span>Until {{ formatDate(candidate.valid_until) }}</span>
+                          <span>Until {{ formatDate(candidate.validUntil) }}</span>
                         }
                       </div>
 
@@ -644,7 +697,7 @@
             </div>
 
             <!-- Load more candidates -->
-            @if (selectedHarvestCandidates().length < candidateTotalCount()) {
+            @if (selectedHarvestId() && selectedHarvestCandidates().length < candidateTotalCount()) {
               <div class="p-2">
                 <button
                   (click)="loadMoreCandidates()"
@@ -660,20 +713,6 @@
             }
           }
         </div>
-      } @else {
-        <!-- Empty selection placeholder -->
-        <div class="flex-1 flex items-center justify-center p-8">
-          <div class="text-center max-w-sm">
-            <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-            <p class="text-sm text-gray-400 dark:text-gray-500 font-medium">Select a harvest</p>
-            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Choose a conversation on the left to review and triage its candidates.
-            </p>
-          </div>
-        </div>
-      }
     </div>
   </div>
 

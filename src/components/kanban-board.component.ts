@@ -218,7 +218,7 @@ export class KanbanBoardComponent {
   }
 
   selectCandidate(candidate: HarvestCandidate) {
-    const textToAppend = `\n\n### ${candidate.title}\n${candidate.intent_description || ''}\n`.trimStart();
+    const textToAppend = `\n\n### ${candidate.title}\n${candidate.intentDescription || ''}\n`.trimStart();
     const current = this.editableReadme() || '';
     this.editableReadme.set(current ? `${current}\n\n${textToAppend}` : textToAppend);
   }
@@ -226,9 +226,9 @@ export class KanbanBoardComponent {
   startEditingCandidate(c: HarvestCandidate, event: MouseEvent) {
     event.stopPropagation();
     this.editingCandidateId.set(c.id);
-    this.editCandidateSysId.set(c.system_id || '');
-    this.editCandidateSubId.set(c.subsystem_id || '');
-    this.editCandidateFeatId.set(c.feature_id || '');
+    this.editCandidateSysId.set(c.systemId || '');
+    this.editCandidateSubId.set(c.subsystemId || '');
+    this.editCandidateFeatId.set(c.featureId || '');
   }
 
   cancelCandidateEdit(event?: MouseEvent) {
@@ -239,9 +239,9 @@ export class KanbanBoardComponent {
   async saveCandidateEdit(id: string, event: MouseEvent) {
     event.stopPropagation();
     await this.dataService.updateHarvestCandidate(id, {
-      system_id: this.editCandidateSysId() || null,
-      subsystem_id: this.editCandidateSubId() || null,
-      feature_id: this.editCandidateFeatId() || null
+      systemId: this.editCandidateSysId() || null,
+      subsystemId: this.editCandidateSubId() || null,
+      featureId: this.editCandidateFeatId() || null
     });
     this.editingCandidateId.set(null);
     // Refresh candidates
@@ -275,12 +275,12 @@ export class KanbanBoardComponent {
     if (event) event.stopPropagation();
     this.spawnPlanCandidate.set(candidate);
     const sysId = this.dataService.selectedSystemId();
-    this.spawnPlanSystemId = candidate.system_id || sysId || '';
-    this.spawnPlanSubsystemId = candidate.subsystem_id || this.dataService.selectedSubsystemId() || '';
-    this.spawnPlanFeatureId = candidate.feature_id || this.dataService.selectedFeatureId() || '';
+    this.spawnPlanSystemId = candidate.systemId || sysId || '';
+    this.spawnPlanSubsystemId = candidate.subsystemId || this.dataService.selectedSubsystemId() || '';
+    this.spawnPlanFeatureId = candidate.featureId || this.dataService.selectedFeatureId() || '';
     this.spawnPlanPlanRef = '';
     this.spawnPlanTitle = candidate.title || '';
-    this.spawnPlanDescription = candidate.intent_description || '';
+    this.spawnPlanDescription = candidate.intentDescription || '';
     this.spawnPlanResult.set(null);
     this.showSpawnPlanModal.set(true);
   }

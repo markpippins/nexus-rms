@@ -54,7 +54,7 @@ export class AgendasViewComponent {
       result = result.filter((a: any) =>
         (a.title || '').toLowerCase().includes(term) ||
         (a.scope || '').toLowerCase().includes(term) ||
-        (a.planner_analysis || '').toLowerCase().includes(term)
+        (a.plannerAnalysis || '').toLowerCase().includes(term)
       );
     }
     return this.dataService.sortByMode(result);
@@ -74,7 +74,7 @@ export class AgendasViewComponent {
   totalItems = computed(() => {
     const agendas = this.agendas();
     if (!agendas) return 0;
-    return agendas.reduce((sum, a) => sum + (a.item_count || a.items?.length || 0), 0);
+    return agendas.reduce((sum, a) => sum + (a.itemCount || a.items?.length || 0), 0);
   });
 
   constructor() {
@@ -280,7 +280,6 @@ export class AgendasViewComponent {
 
   getSourceTypeIcon(sourceType: string): string {
     const icons: Record<string, string> = {
-      intent_record: '📋',
       requirement: '📐',
       agent_record: '📝',
       harvest_candidate: '💡',

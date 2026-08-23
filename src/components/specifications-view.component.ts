@@ -182,7 +182,6 @@ export class SpecificationsViewComponent {
 
   getSourceTypeIcon(sourceType: string): string {
     const icons: Record<string, string> = {
-      intent_record: '📋',
       requirement: '📐',
       agent_record: '📝',
       harvest_candidate: '💡',

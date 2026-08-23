@@ -20,8 +20,6 @@ These endpoints are called by `data.service.ts` but no matching route was found 
 | GET candidates by system | `/systems/:id/harvest-candidates` | Hierarchy-scoped | May be served by nebula-mcp |
 | GET candidates by subsystem | `/subsystems/:id/harvest-candidates` | Hierarchy-scoped | May be served by nebula-mcp |
 | GET candidates by feature | `/features/:id/harvest-candidates` | Hierarchy-scoped | May be served by nebula-mcp |
-| GET intent records | `/intent-records` | List intents | May be served by conduit-mcp |
-| POST promote intent | `/intent-records/:id/promote-to-requirement` | Promote intent | May be served by conduit-mcp |
 | GET snapshots | `/conversations/:id/snapshots` | List snapshots | Block segmentation — possibly served by nebula-srv at different URL |
 | GET snapshot blocks | `/snapshots/:id/blocks` | Get blocks | Block segmentation |
 | POST create snapshot | `/snapshots` | Create snapshot | Block segmentation |

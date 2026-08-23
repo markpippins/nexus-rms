@@ -297,8 +297,8 @@
                                                    <div class="flex items-start justify-between gap-2">
                                                        <div class="flex-1 min-w-0">
                                                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ candidate.title }}</p>
-                                                           @if (candidate.intent_description) {
-                                                               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">{{ candidate.intent_description }}</p>
+                                                           @if (candidate.intentDescription) {
+                                                               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">{{ candidate.intentDescription }}</p>
                                                            }
                                                            <div class="flex items-center gap-2 mt-1 flex-wrap">
                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
@@ -315,13 +315,13 @@
                                                                        Done
                                                                    </span>
                                                                }
-                                                               @if (candidate.harvest_source) {
-                                                                   <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono">{{ candidate.harvest_source }}</span>
+                                                               @if (candidate.harvestSource) {
+                                                                   <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono">{{ candidate.harvestSource }}</span>
                                                                }
-                                                               @if (candidate.subsystem_id && !selectedSubsystem()) {
+                                                               @if (candidate.subsystemId && !selectedSubsystem()) {
                                                                    <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
                                                                }
-                                                               @if (candidate.feature_id && !selectedFeature()) {
+                                                               @if (candidate.featureId && !selectedFeature()) {
                                                                    <span class="text-[9px] text-gray-400 dark:text-gray-500">in feature</span>
                                                                }
                                                            </div>

@@ -2,7 +2,9 @@ import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { UiEventBusService } from '../app/services/ui-event-bus.service';
-import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse } from '../models/data.models';
+import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse, SegmentSet } from '../models/data.models';
+
+const SUBSTANCE_BASE = 'http://localhost:3115';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -150,6 +152,7 @@ export class DataService {
   readonly harvestFilteredHarvests = computed(() => {
     const term = this.listViewSearchTerm().toLowerCase().trim();
     let list = this.harvests();
+    const rawCount = list.length;
     if (term) {
       list = list.filter((h: any) =>
         (h.sourceFilename || '').toLowerCase().includes(term) ||
@@ -159,6 +162,9 @@ export class DataService {
     }
     if (this.harvestHideEmpty()) {
       list = list.filter((h: any) => h.totalCandidates > 0);
+    }
+    if (list.length !== rawCount) {
+      console.log(`[HarvestFilter] Client-side filter: ${rawCount} → ${list.length} (searchTerm='${term}', hideEmpty=${this.harvestHideEmpty()})`);
     }
     return list;
   });
@@ -192,8 +198,19 @@ export class DataService {
         subsystemId: this.selectedSubsystemId() || undefined,
         featureId: this.selectedFeatureId() || undefined,
       });
+      const count = (data.harvests || []).length;
+      console.log(`[HarvestFetch] API returned ${count} harvests (server total: ${data.count ?? count})`, {
+        search: this.listViewSearchTerm() || null,
+        systemId: this.selectedSystemId(),
+        subsystemId: this.selectedSubsystemId(),
+        featureId: this.selectedFeatureId(),
+        keyword: this.harvestKeywordFilter() || null,
+        tag: this.harvestTagFilter() || null,
+        hideEmpty: this.harvestHideEmpty(),
+        sort: this.harvestSortMode(),
+      });
       this.harvests.set(data.harvests || []);
-      this.harvestTotalCount.set(data.count ?? (data.harvests || []).length);
+      this.harvestTotalCount.set(data.count ?? count);
       this.persistHarvestPrefs();
     } catch (err: any) {
       this.harvestsError.set(err.message || 'Failed to fetch harvests');
@@ -644,7 +661,7 @@ export class DataService {
     }
   }
 
-  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; limit?: number; offset?: number; page?: number; pageSize?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
+  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; subsystemId?: string; featureId?: string; limit?: number; offset?: number; page?: number; pageSize?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
     try {
       const qs = new URLSearchParams();
       // NOTE: live nebula-srv honors page/pageSize only (limit/offset are ignored).
@@ -652,8 +669,10 @@ export class DataService {
       const page = filters?.page ?? (filters?.offset ? Math.floor(filters.offset / pageSize) + 1 : 1);
       if (filters?.harvestId) qs.set('harvestId', filters.harvestId);
       if (filters?.systemId) qs.set('systemId', filters.systemId);
+      if (filters?.subsystemId) qs.set('subsystemId', filters.subsystemId);
+      if (filters?.featureId) qs.set('featureId', filters.featureId);
       qs.set('page', String(Math.max(1, page)));
-      qs.set('pageSize', String(Math.min(100, Math.max(1, pageSize))));
+      qs.set('pageSize', String(Math.min(500, Math.max(1, pageSize))));
       const query = qs.toString();
       return await firstValueFrom(
         this.http.get<{ candidates: HarvestCandidate[]; count: number }>(`${this.apiUrl}/harvest-candidates${query ? '?' + query : ''}`)
@@ -1126,6 +1145,19 @@ export class DataService {
         title: '', source: '', units: [], stats: null, candidates: [],
         committedSegments: [], activeOverrides: [],
       };
+    }
+  }
+
+  /** Fetch segment sets from substance-srv for a given harvest. */
+  async getSegmentSetsForHarvest(harvestId: string): Promise<SegmentSet[]> {
+    try {
+      const res = await fetch(`${SUBSTANCE_BASE}/segment-sets`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const all: SegmentSet[] = Array.isArray(data) ? data : data.items || [];
+      return all.filter((s: SegmentSet) => s.metadata?.harvest_id === harvestId);
+    } catch {
+      return [];
     }
   }
 

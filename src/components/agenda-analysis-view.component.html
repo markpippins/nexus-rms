@@ -116,7 +116,7 @@
     <!-- Tab Bar -->
 
     <!-- ═══ Planner Analysis (full width, above tabs) ═══ -->
-    @if (dataService.agendaAnalysisData()?.planner_analysis; as analysis) {
+    @if (dataService.agendaAnalysisData()?.plannerAnalysis; as analysis) {
       <div class="flex-shrink-0 px-3 pt-3 pb-1">
         <div class="flex items-center gap-2 mb-1">
           <svg class="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
@@ -227,8 +227,8 @@
                   <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ tab.harvestTitle }}</p>
                 </div>
               </div>
-              @if (tab.candidate.intent_description) {
-                <p class="text-xs text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">{{ tab.candidate.intent_description }}</p>
+              @if (tab.candidate.intentDescription) {
+                <p class="text-xs text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">{{ tab.candidate.intentDescription }}</p>
               }
               <div class="flex items-center gap-2 mb-4 flex-wrap">
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
@@ -403,7 +403,7 @@
                       <span class="text-xs text-gray-700 dark:text-gray-300 truncate mr-2">{{ c.title }}</span>
                       <div class="flex items-center gap-1 flex-shrink-0">
                         <!-- Transform to Requirement -->
-                        @if (c.system_id && c.status !== 'promoted') {
+                        @if (c.systemId && c.status !== 'promoted') {
                           @if (isTransforming(c.id)) {
                             <svg class="animate-spin w-3.5 h-3.5 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                           } @else {

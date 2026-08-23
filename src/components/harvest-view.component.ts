@@ -5,7 +5,7 @@ import { DataService } from '../services/data.service';
 import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
 import { ToastService } from '../services/toast.service';
 import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses, formatDate, lookupHierarchyName } from '../app/utils/view-helpers';
-import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
+import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry, SegmentSet } from '../models/data.models';
 
 interface HarvestEntry {
   id: string;
@@ -159,7 +159,8 @@ export class HarvestViewComponent {
   /** Per-status counts for the filter chips. */
   candidateStatusCounts = computed(() => {
     const map: Record<string, number> = { pending: 0, linked: 0, useful: 0, promoted: 0, rejected: 0, superseded: 0 };
-    for (const c of this.selectedHarvestCandidates()) {
+    const source = this.selectedHarvestId() ? this.selectedHarvestCandidates() : this.candidatePool();
+    for (const c of source) {
       const s = c.status || 'pending';
       map[s] = (map[s] ?? 0) + 1;
     }
@@ -167,10 +168,17 @@ export class HarvestViewComponent {
   });
 
   filteredCandidates = computed(() => {
-    let list = this.selectedHarvestCandidates();
+    // Use harvest-specific candidates when a harvest is selected,
+    // otherwise use the candidate pool (all candidates or hierarchy-filtered).
+    const source = this.selectedHarvestId() ? this.selectedHarvestCandidates() : this.candidatePool();
+    let list = source;
     if (this.hideCompleted()) list = list.filter(c => !c.completed);
     const sf = this.candidateStatusFilter();
     if (sf !== 'all') list = list.filter(c => (c.status || 'pending') === sf);
+    const total = source.length;
+    if (list.length !== total) {
+      console.log(`[HarvestView] Candidate filter active: ${total} → ${list.length} (hideCompleted=${this.hideCompleted()}, statusFilter=${sf})`);
+    }
     return list;
   });
 
@@ -178,6 +186,9 @@ export class HarvestViewComponent {
   /** Candidate whose detail is expanded inline in the inbox. */
   detailCandidateId = signal<string | null>(null);
   private detailRequestId = 0;
+  /** Segment sets for the currently expanded candidate. */
+  candidateSegmentSets = signal<SegmentSet[]>([]);
+  candidateSegmentSetsLoading = signal(false);
 
   /** The candidate shown in the inline detail (falls back to fetched detail). */
   detailCandidate = computed(() => {
@@ -256,12 +267,22 @@ export class HarvestViewComponent {
 
   /** Toggle the inline detail for a candidate (closing any other open detail). */
   toggleCandidateDetail(candidate: HarvestCandidate) {
-    this.detailCandidateId.update(v => (v === candidate.id ? null : candidate.id));
+    const wasOpen = this.detailCandidateId() === candidate.id;
+    this.detailCandidateId.set(wasOpen ? null : candidate.id);
     this.openQuestionsExpanded.set(false);
     this.openQuestionAnswers.set({});
+    this.candidateSegmentSets.set([]);
     this.dataService.selectedHarvestCandidateId.set(
       this.detailCandidateId() ? candidate.id : null
     );
+    // Fetch segment sets for the expanded candidate's harvest
+    if (!wasOpen && candidate.harvestId) {
+      this.candidateSegmentSetsLoading.set(true);
+      this.dataService.getSegmentSetsForHarvest(candidate.harvestId)
+        .then(sets => this.candidateSegmentSets.set(sets))
+        .catch(() => this.candidateSegmentSets.set([]))
+        .finally(() => this.candidateSegmentSetsLoading.set(false));
+    }
   }
 
   getHierarchyLabel(id: string, type: 'system' | 'subsystem' | 'feature'): string {
@@ -343,25 +364,54 @@ export class HarvestViewComponent {
   // Transform to Requirement state
   transformingId = signal<string | null>(null);
 
+  // ── Candidate pool: the candidates shown in the main list ────────────
+  // When no harvest is selected, this holds ALL candidates (or hierarchy-filtered).
+  // When a harvest IS selected, toggleHarvest() populates it with that harvest's candidates.
+  candidatePool = signal<HarvestCandidate[]>([]);
+  candidatePoolLoading = signal(false);
+  candidatePoolTotal = signal(0);
+
+  /** Fetch candidates into the pool. Pass filters to narrow; omit for all candidates. */
+  private async fetchCandidatePool(filters?: { harvestId?: string; systemId?: string; subsystemId?: string; featureId?: string }) {
+    this.candidatePoolLoading.set(true);
+    try {
+      const data = await this.dataService.listHarvestCandidates({ ...filters, pageSize: 500 });
+      this.candidatePool.set(data.candidates || []);
+      this.candidatePoolTotal.set(data.count ?? (data.candidates || []).length);
+      console.log(`[HarvestView] Candidate pool loaded: ${this.candidatePoolTotal()} total, ${this.candidatePool().length} returned`, filters || {});
+    } catch (err: any) {
+      console.error('Failed to fetch candidate pool:', err);
+    } finally {
+      this.candidatePoolLoading.set(false);
+    }
+  }
+
   constructor() {
     this.dataService.fetchHarvests();
+    // Load ALL candidates on init (no harvest or hierarchy filter).
+    this.fetchCandidatePool();
     // Warm the open-question index (fire-and-forget) so ❓ badges populate.
     this.dataService.loadOpenQuestionIndex();
 
     // Tree filters the harvests: refetch whenever the hierarchy selection changes,
     // and clear the selected harvest when its context no longer applies.
+    // Also refetch the candidate pool with hierarchy filters.
     effect(() => {
-      this.dataService.selectedSystemId();
-      this.dataService.selectedSubsystemId();
-      this.dataService.selectedFeatureId();
+      const sysId = this.dataService.selectedSystemId();
+      const subId = this.dataService.selectedSubsystemId();
+      const featId = this.dataService.selectedFeatureId();
+      console.log(`[HarvestView] Tree filter changed → system=${sysId} subsystem=${subId} feature=${featId}, refetching harvests + candidates`);
       this.dataService.fetchHarvests();
-      if (this.selectedHarvestId()) {
-        this.selectedHarvestId.set(null);
-        this.selectedHarvestCandidates.set([]);
-        this.candidateTotalCount.set(0);
-        this.focusedCandidateId.set(null);
-        this.detailCandidateId.set(null);
-      }
+      // Clear harvest selection and refetch candidate pool with hierarchy filters
+      this.selectedHarvestId.set(null);
+      this.selectedHarvestCandidates.set([]);
+      this.focusedCandidateId.set(null);
+      this.detailCandidateId.set(null);
+      this.fetchCandidatePool({
+        ...(sysId ? { systemId: sysId } : {}),
+        ...(subId ? { subsystemId: subId } : {}),
+        ...(featId ? { featureId: featId } : {}),
+      });
     });
 
     // External detail requests (e.g. agendas-view sets selectedHarvestCandidateId and
@@ -378,9 +428,9 @@ export class HarvestViewComponent {
       const requestId = ++this.detailRequestId;
       this.dataService.getHarvestCandidate(id).then(cand => {
         if (requestId !== this.detailRequestId) return;
-        if (!cand?.harvest_id) return;
-        if (this.selectedHarvestId() !== cand.harvest_id) {
-          this.toggleHarvest(cand.harvest_id).then(() => {
+        if (!cand?.harvestId) return;
+        if (this.selectedHarvestId() !== cand.harvestId) {
+          this.toggleHarvest(cand.harvestId).then(() => {
             if (this.dataService.selectedHarvestCandidateId() === id) {
               this.detailCandidateId.set(id);
             }
@@ -412,6 +462,9 @@ export class HarvestViewComponent {
       const data = await this.dataService.listHarvestCandidates({ harvestId: id, page: 1, pageSize: 100 });
       this.selectedHarvestCandidates.set(data.candidates || []);
       this.candidateTotalCount.set(data.count ?? (data.candidates || []).length);
+      const total = this.candidateTotalCount();
+      const filtered = this.selectedHarvestCandidates().length;
+      console.log(`[HarvestView] Candidates for harvest ${id}: total=${total}, loaded=${filtered}`);
     } catch (err: any) {
       console.error('Failed to fetch candidates:', err);
     } finally {
@@ -576,8 +629,11 @@ export class HarvestViewComponent {
 
   /** Open the transcript for a candidate, anchored near its title text (heuristic search). */
   openTranscriptForCandidate(harvest: HarvestEntry | null, candidate: HarvestCandidate | null) {
-    if (!harvest) return;
-    this.openTranscript(harvest, candidate?.title || undefined);
+    if (!candidate) return;
+    // If no harvest provided, look it up from the candidate's harvestId
+    const h = harvest || this.dataService.harvests().find(h => h.id === candidate.harvestId) || null;
+    if (!h) return;
+    this.openTranscript(h as HarvestEntry, candidate.title || undefined);
   }
 
   /** Heuristic anchor: search the transcript for the candidate title and jump to the first match. */
@@ -939,19 +995,19 @@ export class HarvestViewComponent {
   }
 
   async transformToRequirement(candidate: HarvestCandidate) {
-    if (!candidate.system_id) return;
+    if (!candidate.systemId) return;
     this.transformingId.set(candidate.id);
     try {
       await this.dataService.addRequirement({
         title: candidate.title || 'Untitled Candidate',
-        description: candidate.intent_description || '',
+        description: candidate.intentDescription || '',
         status: 'Backlog',
         priority: 'Medium',
         reqType: 'Task',
         candidateId: candidate.id,
-        systemId: candidate.system_id,
-        subsystemId: candidate.subsystem_id || undefined,
-        featureId: candidate.feature_id || undefined,
+        systemId: candidate.systemId,
+        subsystemId: candidate.subsystemId || undefined,
+        featureId: candidate.featureId || undefined,
       });
       // Mark as promoted locally
       const updated = this.selectedHarvestCandidates().map(c =>
@@ -1047,11 +1103,10 @@ export class HarvestViewComponent {
     }
     const focused = this.filteredCandidates().find(c => c.id === this.focusedCandidateId());
     if (!focused) return;
-    const harvest = this.selectedHarvest();
     switch (key) {
       case 'Enter':
         e.preventDefault();
-        if (harvest) this.openTranscript(harvest, focused.title);
+        this.openTranscriptForCandidate(null, focused);
         break;
       case 's':
         e.preventDefault();
@@ -1109,7 +1164,9 @@ export class HarvestViewComponent {
 
   onMenuTranscript(candidate: HarvestCandidate) {
     this.openMenuId.set(null);
-    this.openTranscriptForCandidate(this.selectedHarvest(), candidate);
+    // Always look up the harvest by candidate.harvestId so each candidate
+    // opens its own transcript, even when a different harvest is selected.
+    this.openTranscriptForCandidate(null, candidate);
   }
 
   getStatusColor(status: string): string {

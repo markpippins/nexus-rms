@@ -15,7 +15,7 @@
           >
             All ({{ count() }})
           </button>
-          @for (st of ['intent_record', 'requirement', 'agent_record', 'harvest_candidate', 'knowledge_graph_entry']; track st) {
+          @for (st of ['requirement', 'agent_record', 'harvest_candidate', 'knowledge_graph_entry']; track st) {
             @if ((sourceTypeCounts()[st] || 0) > 0) {
               <button
                 (click)="sourceTypeFilter.set(sourceTypeFilter() === st ? null : st)"

@@ -123,13 +123,13 @@
                       {{ getStatusLabel(agenda.status) }}
                     </span>
                     <!-- Cohesion score -->
-                    @if (agenda.cohesion_score != null) {
+                    @if (agenda.cohesionScore != null) {
                       <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                            [class]="getCohesionBg(agenda.cohesion_score)">
+                            [class]="getCohesionBg(agenda.cohesionScore)">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                         </svg>
-                        <span [class]="getCohesionColor(agenda.cohesion_score)">Cohesion: {{ (agenda.cohesion_score * 100).toFixed(0) }}%</span>
+                        <span [class]="getCohesionColor(agenda.cohesionScore)">Cohesion: {{ (agenda.cohesionScore * 100).toFixed(0) }}%</span>
                       </span>
                     }
                     <!-- Item count -->
@@ -137,10 +137,10 @@
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                       </svg>
-                      {{ agenda.item_count || agenda.items?.length || 0 }} items
+                      {{ agenda.itemCount || agenda.items?.length || 0 }} items
                     </span>
                     <!-- Planner analysis indicator -->
-                    @if (agenda.planner_analysis) {
+                    @if (agenda.plannerAnalysis) {
                       <span class="inline-flex items-center gap-0.5 text-[10px] text-purple-500 dark:text-purple-400">
                         <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         Analysis
@@ -148,7 +148,7 @@
                     }
                     <!-- Date -->
                     <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">
-                      {{ formatDate(agenda.created_at) }}
+                      {{ formatDate(agenda.createdAt) }}
                     </span>
                   </div>
                   <!-- Click hint -->
@@ -169,13 +169,13 @@
                   </div>
                 } @else {
                   <!-- Planner analysis block (if present) -->
-                  @if (agenda.planner_analysis) {
+                  @if (agenda.plannerAnalysis) {
                     <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
                       <div class="flex items-start gap-2">
                         <svg class="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         <div class="flex-1 min-w-0">
                           <p class="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-1">Planner Analysis</p>
-                          <p class="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">{{ agenda.planner_analysis }}</p>
+                          <p class="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">{{ agenda.plannerAnalysis }}</p>
                         </div>
                       </div>
                     </div>
