@@ -4,7 +4,8 @@ import { firstValueFrom } from 'rxjs';
 import { UiEventBusService } from '../app/services/ui-event-bus.service';
 import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse, SegmentSet } from '../models/data.models';
 
-const SUBSTANCE_BASE = 'http://localhost:3115';
+// LAC rule 4: substance target from env (VITE_SUBSTANCE_URL), documented default :3115.
+const SUBSTANCE_BASE = ((import.meta as any).env?.['VITE_SUBSTANCE_URL'] as string | undefined) || 'http://localhost:3115';
 import { environment } from '../environments/environment';
 
 @Injectable({
