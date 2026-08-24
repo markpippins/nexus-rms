@@ -1,461 +1,746 @@
-<div class="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors overflow-hidden">
-  <!-- Content -->
-  <div class="flex-1 overflow-y-auto min-h-0 p-6">
-    <!-- Distribution Panel -->
-    @if (dataService.harvestShowDistribution()) {
-      <div class="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-800 p-5 mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Distribution</h3>
-          <button (click)="dataService.harvestShowDistribution.set(false)" class="text-gray-400 hover:text-gray-600">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
+<div class="flex-1 min-h-0 flex overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors">
+  <!-- LEFT PANE: Harvests (secondary toolbar + content) -->
+  <div class="flex-1 min-w-0 flex flex-col min-h-0">
+  <!-- Single toolbar: search / sort / distribution / advanced filters + summary chips -->
+  <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+    <app-harvest-filter-bar placeholder="Search harvests..."></app-harvest-filter-bar>
+  </div>
+
+  <!-- Distribution Panel (collapsible strip above the split) -->
+  @if (dataService.harvestShowDistribution()) {
+    <div class="flex-shrink-0 max-h-64 overflow-y-auto bg-white dark:bg-gray-800 border-b border-purple-200 dark:border-purple-800 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Distribution</h3>
+        <button (click)="dataService.harvestShowDistribution.set(false)" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      @if (dataService.harvestDistributionLoading()) {
+        <div class="flex items-center justify-center py-6">
+          <svg class="animate-spin h-5 w-5 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         </div>
-        @if (dataService.harvestDistributionLoading()) {
-          <div class="flex items-center justify-center py-8">
-            <svg class="animate-spin h-5 w-5 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-          </div>
-        } @else if (dataService.harvestDistributionData()) {
-          <div class="space-y-4">
-            <!-- Totals -->
-            @if (dataService.harvestDistributionData().totals) {
-              <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ dataService.harvestDistributionData().totals.total_harvests }} harvests</span>
-                <span>·</span>
-                <span>{{ dataService.harvestDistributionData().totals.total_candidates }} candidates</span>
-                <span>·</span>
-                <span>avg {{ dataService.harvestDistributionData().totals.avg_candidates_per_harvest }}c/harvest</span>
-              </div>
-            }
-            <!-- Turn Distribution Histogram -->
-            @if (dataService.harvestDistributionData().turnDistribution?.length) {
-              <div>
-                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Conversation Length</h4>
-                <div class="flex items-end gap-1 h-20">
-                  @for (bucket of dataService.harvestDistributionData().turnDistribution; track bucket.bucket) {
-                    <div class="flex-1 flex flex-col items-center gap-1" [title]="bucket.bucket + ' turns: ' + bucket.harvest_count + ' harvests'">
-                      <div class="w-full rounded-t bg-purple-400 dark:bg-purple-500 min-h-[4px] transition-all"
-                           [style.height]="(bucket.harvest_count / (dataService.harvestDistributionData().turnDistribution[0]?.harvest_count || 1) * 100) + '%'">
-                      </div>
-                      <span class="text-[9px] text-gray-400 dark:text-gray-500">{{ bucket.bucket }}</span>
+      } @else if (dataService.harvestDistributionData()) {
+        <div class="space-y-4">
+          @if (dataService.harvestDistributionData().totals) {
+            <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <span>{{ dataService.harvestDistributionData().totals.total_harvests }} harvests</span>
+              <span>·</span>
+              <span>{{ dataService.harvestDistributionData().totals.total_candidates }} candidates</span>
+              <span>·</span>
+              <span>avg {{ dataService.harvestDistributionData().totals.avg_candidates_per_harvest }}c/harvest</span>
+            </div>
+          }
+          @if (dataService.harvestDistributionData().turnDistribution?.length) {
+            <div>
+              <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Conversation Length</h4>
+              <div class="flex items-end gap-1 h-20">
+                @for (bucket of dataService.harvestDistributionData().turnDistribution; track bucket.bucket) {
+                  <div class="flex-1 flex flex-col items-center gap-1" [title]="bucket.bucket + ' turns: ' + bucket.harvest_count + ' harvests'">
+                    <div class="w-full rounded-t bg-purple-400 dark:bg-purple-500 min-h-[4px] transition-all"
+                         [style.height]="(bucket.harvest_count / (dataService.harvestDistributionData().turnDistribution[0]?.harvest_count || 1) * 100) + '%'">
                     </div>
-                  }
-                </div>
-              </div>
-            }
-            <!-- Block Types -->
-            @if (dataService.harvestDistributionData().blockTypeDistribution?.length) {
-              <div>
-                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Block Types</h4>
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  @for (bt of dataService.harvestDistributionData().blockTypeDistribution; track bt.block_type) {
-                    <span class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
-                      {{ bt.block_type }} <span class="text-gray-400">{{ bt.cnt }}</span>
-                    </span>
-                  }
-                </div>
-              </div>
-            }
-            <!-- Top Tags -->
-            @if (dataService.harvestDistributionData().topTags?.length) {
-              <div>
-                <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Top Tags</h4>
-                <div class="flex items-center gap-1 flex-wrap">
-                  @for (tag of dataService.harvestDistributionData().topTags; track tag.tag) {
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">
-                      {{ tag.tag }} <span class="text-amber-500">{{ tag.cnt }}</span>
-                    </span>
-                  }
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </div>
-    }
-    @if (dataService.harvestsError()) {
-      <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span class="text-sm text-red-700 dark:text-red-400">{{ dataService.harvestsError() }}</span>
-        </div>
-        <button (click)="dataService.fetchHarvests()" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
-      </div>
-    }
-    @if (dataService.harvestsLoading()) {
-      <div class="flex items-center justify-center py-32">
-        <svg class="animate-spin h-8 w-8 text-amber-500" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-      </div>
-    } @else if (dataService.harvestFilteredHarvests().length === 0) {
-      <div class="flex items-center justify-center py-32">
-        <div class="text-center">
-          <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
-          <p class="text-gray-400 dark:text-gray-500 font-medium">No harvests found</p>
-          <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">
-            @if (dataService.listViewSearchTerm()) { Try a different search term. } @else { Run the harvest pipeline to populate data. }
-          </p>
-        </div>
-      </div>
-    } @else {
-      <div class="space-y-3">
-        @for (harvest of dataService.harvestFilteredHarvests(); track harvest.id) {
-          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all">
-            <!-- Harvest Header -->
-            <div class="w-full px-5 py-4 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-              <button
-                (click)="toggleHarvest(harvest.id)"
-                class="flex-shrink-0"
-              >
-                <svg class="w-3 h-3 text-gray-400 transition-transform"
-                     [class.rotate-90]="selectedHarvestId() === harvest.id"
-                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-              </button>
-
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
-                    {{ harvest.source_filename || 'Untitled Harvest' }}
-                  </span>
-                  @if (harvest.model) {
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex-shrink-0">
-                      {{ harvest.model }}
-                    </span>
-                  }
-                </div>
-                <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
-                  <span class="font-mono truncate max-w-xs" [title]="harvest.source_path">
-                    {{ truncatePath(harvest.source_path) }}
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                    {{ harvest.total_candidates }}c
-                  </span>
-                  @if (dataService.harvestSortMode() !== 'candidate_count' && harvest.turns !== undefined) {
-                    <span class="flex items-center gap-1">
-                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                      {{ formatMetric(harvest.turns) }}t
-                    </span>
-                  }
-                  @if (dataService.harvestSortMode() === 'code_blocks' || dataService.harvestSortMode() === 'block_density') {
-                    <span class="flex items-center gap-1">
-                      <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                      {{ formatMetric(harvest.code_blocks) }} code
-                    </span>
-                  }
-                  @if (dataService.harvestSortMode() === 'keyword_hits') {
-                    <span class="flex items-center gap-1">
-                      <span class="inline-block w-1 h-1 rounded-full bg-amber-400"></span>
-                      {{ formatMetric(harvest.keyword_hits) }} hits
-                    </span>
-                  }
-                  @if (dataService.harvestSortMode() === 'tag_frequency') {
-                    <span class="flex items-center gap-1">
-                      <span class="inline-block w-1 h-1 rounded-full bg-violet-400"></span>
-                      {{ formatMetric(harvest.tag_frequency) }} tags
-                    </span>
-                    @if (harvest.tags?.length) {
-                      <span class="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[200px]" [title]="harvest.tags.join(', ')">
-                        {{ formatTags(harvest.tags) }}
-                      </span>
-                    }
-                  }
-                  <span class="flex items-center gap-1">
-                    <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                    {{ formatDate(harvest.created_at) }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Action buttons -->
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <button
-                  (click)="openTranscript(harvest); $event.stopPropagation()"
-                  class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                  title="View Transcript"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                  </svg>
-                </button>
-                @if (harvest.tags && harvest.tags.length > 0) {
-                  <div class="hidden sm:flex items-center gap-1">
-                    @for (tag of harvest.tags.slice(0, 2); track tag) {
-                      <span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
-                        {{ tag }}
-                      </span>
-                    }
+                    <span class="text-[9px] text-gray-400 dark:text-gray-500">{{ bucket.bucket }}</span>
                   </div>
                 }
               </div>
             </div>
+          }
+          @if (dataService.harvestDistributionData().blockTypeDistribution?.length) {
+            <div>
+              <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Block Types</h4>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                @for (bt of dataService.harvestDistributionData().blockTypeDistribution; track bt.block_type) {
+                  <span class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
+                    {{ bt.block_type }} <span class="text-gray-400">{{ bt.cnt }}</span>
+                  </span>
+                }
+              </div>
+            </div>
+          }
+          @if (dataService.harvestDistributionData().topTags?.length) {
+            <div>
+              <h4 class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2 uppercase">Top Tags</h4>
+              <div class="flex items-center gap-1 flex-wrap">
+                @for (tag of dataService.harvestDistributionData().topTags; track tag.tag) {
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">
+                    {{ tag.tag }} <span class="text-amber-500">{{ tag.cnt }}</span>
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 
-            <!-- Candidates -->
-            @if (selectedHarvestId() === harvest.id) {
-              <div class="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <!-- Promote to Agenda bar -->
-                @if (stagedCandidates.length > 0) {
-                  <div class="px-5 py-2.5 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/30 flex items-center justify-between">
-                    <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                      {{ stagedCandidates.length }} staged candidate{{ stagedCandidates.length !== 1 ? 's' : '' }}
+  <!-- ── Master / Detail body ─────────────────────────────────── -->
+  <div class="flex-1 min-h-0 flex overflow-hidden">
+    <!-- LEFT: Harvest list -->
+    <div class="w-[300px] shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col min-h-0">
+      <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+        <span class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Harvests</span>
+        <span class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">{{ dataService.harvestFilteredHarvests().length }} shown</span>
+      </div>
+
+      <div class="flex-1 overflow-y-auto min-h-0">
+        @if (dataService.harvestsError()) {
+          <div class="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 p-3 flex items-center justify-between">
+            <span class="text-xs text-red-700 dark:text-red-400">{{ dataService.harvestsError() }}</span>
+            <button (click)="dataService.fetchHarvests()" class="text-xs text-red-600 dark:text-red-400 font-medium hover:underline">Retry</button>
+          </div>
+        }
+
+        @if (dataService.harvestsLoading() && dataService.harvests().length === 0) {
+          <!-- Skeleton rows -->
+          <div class="p-3 space-y-2">
+            @for (sk of [0,1,2,3,4,5]; track sk) {
+              <div class="animate-pulse space-y-1.5 rounded-lg border border-gray-100 dark:border-gray-800 p-2.5">
+                <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                <div class="h-2 bg-gray-100 dark:bg-gray-700/60 rounded w-1/2"></div>
+              </div>
+            }
+          </div>
+        } @else if (dataService.harvestFilteredHarvests().length === 0) {
+          <div class="flex items-center justify-center py-16 px-4">
+            <div class="text-center">
+              <svg class="w-10 h-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              <p class="text-sm text-gray-400 dark:text-gray-500 font-medium">No harvests found</p>
+              <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">
+                @if (dataService.listViewSearchTerm()) { Try a different search term. } @else { Run the harvest pipeline to populate data. }
+              </p>
+            </div>
+          </div>
+        } @else {
+          <div class="py-1.5">
+            @for (harvest of dataService.harvestFilteredHarvests(); track harvest.id) {
+              <div
+                role="button"
+                tabindex="0"
+                (click)="toggleHarvest(harvest.id)"
+                (keydown.enter)="toggleHarvest(harvest.id)"
+                class="w-full text-left px-3 py-2.5 cursor-pointer border-l-2 transition-colors"
+                [class]="selectedHarvestId() === harvest.id
+                  ? 'bg-amber-50/70 dark:bg-amber-900/10 border-l-amber-500'
+                  : 'border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50'"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-[13px] font-medium text-gray-800 dark:text-gray-200 truncate flex-1">
+                    {{ harvest.sourceFilename || 'Untitled Harvest' }}
+                  </span>
+                  @if (harvest.model) {
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex-shrink-0">
+                      {{ harvest.model }}
                     </span>
-                    <div class="flex items-center gap-2">
-                      @if (promoteToAgendaResult()) {
-                        <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToAgendaResult() }}</span>
-                        <button (click)="promoteToAgendaResult.set(null)" class="text-gray-400 hover:text-gray-600">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                      } @else {
-                        <button
-                          (click)="promoteToAgenda()"
-                          [disabled]="promotingToAgenda()"
-                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                        >
-                          @if (promotingToAgenda()) {
-                            <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                          }
-                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                          Promote to Agenda
-                        </button>
-                      }
-                    </div>
-                  </div>
-                }
-                @if (!candidatesLoading() && selectedHarvestCandidates().length > 0) {
-                  <!-- Candidate filter bar -->
-                  <div class="px-5 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
-                    <div class="flex items-center gap-3">
-                      <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          [checked]="hideCompleted()"
-                          (change)="hideCompleted.set(!hideCompleted())"
-                          class="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700"
-                        >
-                        Hide completed
-                      </label>
-                      @if (selectedCandidateIds().size > 0) {
-                        <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                          {{ selectedCandidateIds().size }} selected
-                        </span>
-                        <button
-                          (click)="clearSelection()"
-                          class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 underline"
-                        >
-                          Clear
-                        </button>
-                      }
-                    </div>
-                    @if (hideCompleted()) {
-                      <span class="text-xs text-gray-400 dark:text-gray-500">
-                        {{ filteredCandidates().length }} of {{ selectedHarvestCandidates().length }} shown
-                      </span>
-                    }
-                  </div>
-                  <!-- Bulk actions toolbar -->
-                  @if (selectedCandidateIds().size > 0) {
-                    <div class="px-5 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-green-50/40 dark:bg-green-900/10">
-                      <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          [checked]="allVisibleSelected()"
-                          (change)="toggleSelectAllVisible()"
-                          [disabled]="bulkMarkingCompleted()"
-                          aria-label="Select all visible candidates"
-                          class="w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                        Select all visible
-                      </label>
-                      <button
-                        (click)="bulkMarkSelectedCompleted()"
-                        [disabled]="bulkMarkingCompleted()"
-                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                      >
-                        @if (bulkMarkingCompleted()) {
-                          <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        } @else {
-                          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                        }
-                        Mark {{ selectedCandidateIds().size }} as completed
-                      </button>
-                    </div>
                   }
-                }
-                @if (candidatesLoading()) {
-                  <div class="flex items-center justify-center py-8">
-                    <svg class="animate-spin h-5 w-5 text-amber-500" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                  </div>
-                } @else if (selectedHarvestCandidates().length === 0) {
-                  <div class="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
-                    No candidates in this harvest.
-                  </div>
-                } @else if (filteredCandidates().length === 0) {
-                  <div class="p-6 text-center text-xs text-gray-400 dark:text-gray-500">
-                    All candidates are completed.
-                    <button (click)="hideCompleted.set(false)" class="ml-1 text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300 underline">Show all</button>
-                  </div>
-                } @else {
-                  <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                    @for (candidate of filteredCandidates(); track candidate.id) {
-                      <div class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                           (dblclick)="openTranscript(harvest)">
-                        <div class="flex items-start justify-between gap-3">
-                          <div class="flex items-start gap-2.5 flex-1 min-w-0">
-                            <input
-                              type="checkbox"
-                              [checked]="selectedCandidateIds().has(candidate.id)"
-                              (change)="toggleCandidateSelection(candidate.id); $event.stopPropagation()"
-                              [disabled]="bulkMarkingCompleted()"
-                              [attr.aria-label]="'Select ' + (candidate.title || 'Untitled Candidate')"
-                              class="mt-1 w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 flex-shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                            <div class="flex-1 min-w-0">
-                              <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                {{ candidate.title || 'Untitled Candidate' }}
-                              </p>
-                            @if (candidate.intent_description) {
-                              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                                {{ candidate.intent_description }}
-                              </p>
-                            }
-                              <div class="flex items-center gap-2 mt-2 flex-wrap">
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
-                                      [class]="getStatusColor(candidate.status)">
-                                  {{ candidate.status || 'pending' }}
-                                </span>
-                                @if (candidate.completed) {
-                                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="Completed">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    Done
-                                  </span>
-                                }
-                                @if (candidate.system_id) {
-                                  <span class="text-[9px] text-gray-400 dark:text-gray-500">Linked</span>
-                                }
-                                @if (candidate.subsystem_id) {
-                                  <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
-                                }
-                              </div>
-                            </div>
-                          </div>
-                          <div class="flex items-center gap-1 flex-shrink-0">
-                            <!-- Transform to Requirement -->
-                            @if (candidate.system_id && candidate.status !== 'promoted') {
-                              @if (transformingId() === candidate.id) {
-                                <svg class="animate-spin w-3.5 h-3.5 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                              } @else {
-                                <button
-                                  (click)="transformToRequirement(candidate)"
-                                  class="p-1 rounded text-purple-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-                                  title="Transform to Requirement"
-                                >
-                                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                                  </svg>
-                                </button>
-                              }
-                            }
-                            <!-- Promote → Stage -->
-                            @if (candidate.status === 'linked' || candidate.status === 'pending') {
-                              <button
-                                (click)="promoteCandidate(candidate)"
-                                [disabled]="promotingId() === candidate.id"
-                                class="p-1 rounded text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                                title="Stage candidate"
-                              >
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                </svg>
-                              </button>
-                            }
-                            <!-- Reject -->
-                            @if (candidate.status !== 'rejected' && candidate.status !== 'promoted') {
-                              <button
-                                (click)="rejectCandidate(candidate)"
-                                [disabled]="promotingId() === candidate.id"
-                                class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                title="Reject"
-                              >
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                              </button>
-                            }
-                            <!-- Toggle Completed -->
-                            <button
-                              (click)="toggleCandidateCompleted(candidate)"
-                              [disabled]="togglingCompletedId() === candidate.id"
-                              [class]="candidate.completed
-                                ? 'p-1 rounded transition-colors text-green-500 hover:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                                : 'p-1 rounded transition-colors text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20'"
-                              [title]="candidate.completed ? 'Unmark as completed' : 'Mark as completed'"
-                            >
-                              @if (togglingCompletedId() === candidate.id) {
-                                <svg class="animate-spin w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                              } @else if (candidate.completed) {
-                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                              } @else {
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                              }
-                            </button>
-                            <!-- View Transcript (inline link to blocks) -->
-                            <button
-                              (click)="openTranscript(harvest)"
-                              class="p-1 rounded text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                              title="View in transcript"
-                            >
-                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    }
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500 mt-1 flex-wrap">
+                  <span class="font-medium" [class]="harvest.totalCandidates > 0 ? 'text-amber-600 dark:text-amber-400' : ''">
+                    🧩 {{ harvest.totalCandidates }}
+                  </span>
+                  <span title="turns">💬 {{ formatMetric(harvest.turns) }}</span>
+                  <span title="code blocks">⌨ {{ formatMetric(harvest.codeBlocks) }}</span>
+                  @if (harvest.tags && harvest.tags.length > 0) {
+                    <span class="truncate max-w-[120px] text-gray-400 dark:text-gray-500" [title]="harvest.tags.join(', ')">
+                      {{ formatTags(harvest.tags) }}
+                    </span>
+                  }
+                  <span class="ml-auto flex items-center gap-1">
+                    <span class="tabular-nums">{{ relativeTime(harvest.createdAt) }}</span>
+                    <button
+                      (click)="openTranscript(harvest); $event.stopPropagation()"
+                      class="p-1 rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="View transcript"
+                    >
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+                @if (selectedHarvestId() === harvest.id && selectedHarvestProgress().total > 0) {
+                  <div class="mt-1.5 h-1 w-full rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden" title="staged + promoted / total">
+                    <div class="h-full rounded-full bg-green-500 transition-all duration-300" [style.width.%]="selectedHarvestProgress().pct"></div>
                   </div>
                 }
               </div>
             }
           </div>
         }
+
+        <!-- Load more harvests -->
+        @if (dataService.harvests().length > 0 && dataService.harvests().length < dataService.harvestTotalCount()) {
+          <div class="p-2 border-t border-gray-100 dark:border-gray-700">
+            <button
+              (click)="dataService.loadMoreHarvests()"
+              [disabled]="dataService.harvestsLoading()"
+              class="w-full text-center text-xs font-medium py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              @if (dataService.harvestsLoading()) {
+                <svg class="animate-spin inline w-3 h-3 mr-1" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              }
+              Load more ({{ dataService.harvestTotalCount() - dataService.harvests().length }} remaining)
+            </button>
+          </div>
+        }
       </div>
-    }
+    </div>
+
+    <!-- RIGHT: Candidate inbox -->
+    <div class="flex-1 min-w-0 flex flex-col bg-gray-50 dark:bg-gray-900">
+      <!-- Inbox header -->
+      <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+        @if (selectedHarvest()) {
+          <!-- Harvest-specific header -->
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {{ selectedHarvest()!.sourceFilename }}
+                </span>
+                @if (selectedHarvest()!.model) {
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium flex-shrink-0">
+                    {{ selectedHarvest()!.model }}
+                  </span>
+                }
+              </div>
+              <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                <span class="tabular-nums">{{ candidateTotalCount() }} candidates</span>
+                @if (selectedHarvestProgress().staged > 0) {
+                  <span class="text-amber-600 dark:text-amber-400 tabular-nums">· {{ selectedHarvestProgress().staged }} staged</span>
+                }
+                @if (selectedHarvestProgress().promoted > 0) {
+                  <span class="text-blue-600 dark:text-blue-400 tabular-nums">· {{ selectedHarvestProgress().promoted }} promoted</span>
+                }
+                @if (selectedHarvestProgress().done > 0) {
+                  <span class="text-green-600 dark:text-green-400 tabular-nums">· {{ selectedHarvestProgress().done }} done</span>
+                }
+              </div>
+              @if (selectedHarvestProgress().total > 0) {
+                <div class="mt-1.5 h-1 w-full max-w-xs rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
+                     [title]="selectedHarvestProgress().staged + ' staged · ' + selectedHarvestProgress().promoted + ' promoted of ' + selectedHarvestProgress().total">
+                  <div class="h-full rounded-full bg-green-500 transition-all duration-300" [style.width.%]="selectedHarvestProgress().pct"></div>
+                </div>
+              }
+            </div>
+            <button
+              (click)="toggleHarvest(selectedHarvestId()!)"
+              class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
+              title="Deselect harvest"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        } @else {
+          <!-- Default header: all candidates -->
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                All Candidates
+n                @if (dataService.selectedSystemId() || dataService.selectedSubsystemId() || dataService.selectedFeatureId()) {
+                  <span class="text-xs font-normal text-gray-400 dark:text-gray-500 ml-2">filtered by hierarchy</span>
+                }
+              </div>
+              <div class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
+                {{ candidatePoolTotal() }} candidates from {{ dataService.harvests().length }} harvests
+              </div>
+            </div>
+          </div>
+        }
+
+        <!-- Promote to Agenda bar -->
+        @if (selectedHarvest() && stagedCandidates.length > 0) {
+          <div class="mt-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-lg flex items-center justify-between gap-2">
+            <span class="text-xs text-amber-700 dark:text-amber-400 font-medium">
+              {{ stagedCandidates.length }} staged candidate{{ stagedCandidates.length !== 1 ? 's' : '' }}
+            </span>
+            <div class="flex items-center gap-2">
+              @if (promoteToAgendaResult()) {
+                <span class="text-xs text-green-600 dark:text-green-400 max-w-xs truncate">{{ promoteToAgendaResult() }}</span>
+                <button (click)="promoteToAgendaResult.set(null)" class="text-gray-400 hover:text-gray-600">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              } @else {
+                <button
+                  (click)="promoteToAgenda()"
+                  [disabled]="promotingToAgenda()"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  @if (promotingToAgenda()) {
+                    <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  } @else {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  }
+                  Promote to Agenda
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Candidate filter row -->
+      @if (!(candidatesLoading() || candidatePoolLoading()) && filteredCandidates().length > 0) {
+          <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap bg-gray-50/50 dark:bg-gray-800/50 flex-shrink-0">
+            <div class="flex items-center gap-1 flex-wrap">
+              @for (chip of candidateStatusChips; track chip.key) {
+                  <button
+                    (click)="candidateStatusFilter.set(chip.key)"
+                    class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors inline-flex items-center gap-1"
+                    [class]="candidateStatusFilter() === chip.key
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                  >
+                    {{ chip.label }}
+                    @if (chip.key !== 'all') {
+                      <span class="tabular-nums text-[9px]">{{ candidateStatusCounts()[chip.key] ?? 0 }}</span>
+                    }
+                  </button>
+                }
+            </div>
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    [checked]="hideCompleted()"
+                    (change)="hideCompleted.set(!hideCompleted())"
+                    class="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-700"
+                  >
+                  Hide done
+                </label>
+              @if (selectedCandidateIds().size > 0) {
+                <div class="h-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ selectedCandidateIds().size }} selected</span>
+                <button (click)="clearSelection()" class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 underline">Clear</button>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Bulk actions toolbar -->
+        @if (selectedCandidateIds().size > 0) {
+          <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-green-50/40 dark:bg-green-900/10 flex-shrink-0">
+            <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                [checked]="allVisibleSelected()"
+                (change)="toggleSelectAllVisible()"
+                [disabled]="bulkMarkingCompleted()"
+                aria-label="Select all visible candidates"
+                class="w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+              Select all visible
+            </label>
+            <button
+              (click)="bulkMarkSelectedCompleted()"
+              [disabled]="bulkMarkingCompleted()"
+              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              @if (bulkMarkingCompleted()) {
+                <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              } @else {
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              }
+              Mark {{ selectedCandidateIds().size }} as completed
+            </button>
+          </div>
+        }
+
+        <!-- Candidate list -->
+        <div class="flex-1 overflow-y-auto min-h-0">
+          @if (candidatesLoading() || candidatePoolLoading()) {
+            <div class="flex items-center justify-center py-16">
+              <svg class="animate-spin h-6 w-6 text-amber-500" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            </div>
+          } @else if (filteredCandidates().length === 0 && (selectedHarvestId() ? selectedHarvestCandidates().length === 0 : candidatePool().length === 0)) {
+            <div class="p-8 text-center text-xs text-gray-400 dark:text-gray-500">
+              @if (selectedHarvestId()) { No candidates in this harvest. }
+              @else { No candidates found. }
+            </div>
+          } @else if (filteredCandidates().length === 0) {
+            <div class="p-8 text-center text-xs text-gray-400 dark:text-gray-500">
+              @if (hideCompleted()) { All candidates are completed. }
+              @else { No candidates match the selected status. }
+              @if (candidateStatusFilter() !== 'all' || hideCompleted()) {
+                <button (click)="candidateStatusFilter.set('all'); hideCompleted.set(false)" class="ml-1 text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300 underline">Show all</button>
+              }
+            </div>
+          } @else {
+            <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+              @for (candidate of filteredCandidates(); track candidate.id) {
+                <div
+                  id="cand-{{ candidate.id }}"
+                  class="px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors relative group cursor-pointer"
+                  [class]="focusedCandidateId() === candidate.id
+                    ? 'bg-amber-50/60 dark:bg-amber-900/10'
+                    : ''"
+                  [class]="detailCandidateId() === candidate.id
+                    ? 'bg-blue-50/60 dark:bg-blue-900/10'
+                    : ''"
+                  [class.opacity-60]="candidate.completed"
+                  (click)="toggleCandidateDetail(candidate)"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start gap-2.5 flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        [checked]="selectedCandidateIds().has(candidate.id)"
+                        (change)="toggleCandidateSelection(candidate.id); $event.stopPropagation()"
+                        [disabled]="bulkMarkingCompleted()"
+                        [attr.aria-label]="'Select ' + (candidate.title || 'Untitled Candidate')"
+                        class="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-green-500 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700 flex-shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                      <div class="flex-1 min-w-0">
+                        <button
+                          (click)="openTranscriptForCandidate(null, candidate); $event.stopPropagation()"
+                          class="text-left"
+                          title="Open transcript, anchored near this candidate"
+                        >
+                          <p class="text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400">
+                            {{ candidate.title || 'Untitled Candidate' }}
+                          </p>
+                        </button>
+                        @if (candidate.intentDescription) {
+                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                            {{ candidate.intentDescription }}
+                          </p>
+                        }
+                        <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                [class]="getStatusColor(candidate.status || 'pending')">
+                            {{ candidate.status || 'pending' }}
+                          </span>
+                          @if (candidate.completed) {
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" title="Completed">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                              Done
+                            </span>
+                          }
+                          @if (candidate.systemId) {
+                            <span class="text-[9px] text-gray-400 dark:text-gray-500">Linked</span>
+                          }
+                          @if (candidate.subsystemId) {
+                            <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
+                          }
+                          @if (dataService.openQuestionCountFor(candidate.id) > 0) {
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400" title="Open questions linked to this candidate">
+                              ❓ {{ dataService.openQuestionCountFor(candidate.id) }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                      <!-- Primary action: Stage (labeled) -->
+                      @if (candidate.status === 'linked' || candidate.status === 'pending') {
+                        <button
+                          (click)="promoteCandidate(candidate); $event.stopPropagation()"
+                          [disabled]="promotingId() === candidate.id"
+                          class="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                          title="Stage candidate (s)"
+                        >
+                          @if (promotingId() === candidate.id) {
+                            <svg class="animate-spin w-3 h-3" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                          } @else {
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                          }
+                          Stage
+                        </button>
+                      }
+                      <!-- Overflow menu -->
+                      <div class="relative">
+                        <button
+                          (click)="toggleCandidateMenu(candidate.id); $event.stopPropagation()"
+                          class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="More actions"
+                          aria-label="More actions"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4zm0 6a2 2 0 100-4 2 2 0 000 4z"/></svg>
+                        </button>
+
+                        @if (openMenuId() === candidate.id) {
+                          <div class="absolute right-0 top-8 z-30 w-48 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl"
+                               (click)="$event.stopPropagation()">
+                            @if (candidate.systemId && candidate.status !== 'promoted') {
+                              @if (transformingId() === candidate.id) {
+                                <div class="px-3 py-2 text-xs text-gray-400 flex items-center gap-2">
+                                  <svg class="animate-spin w-3 h-3 text-purple-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  Transforming…
+                                </div>
+                              } @else {
+                                <button
+                                  (click)="onMenuTransform(candidate)"
+                                  class="w-full text-left px-3 py-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                                >
+                                  ↻ Transform to requirement
+                                </button>
+                              }
+                            }
+                            @if (candidate.status !== 'rejected' && candidate.status !== 'promoted') {
+                              <button
+                                (click)="onMenuReject(candidate)"
+                                [disabled]="promotingId() === candidate.id"
+                                class="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                ✕ Reject candidate
+                              </button>
+                            }
+                            <button
+                              (click)="onMenuToggleCompleted(candidate)"
+                              class="w-full text-left px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              {{ candidate.completed ? '☐ Unmark done' : '☑ Mark as done' }}
+                            </button>
+                            <button
+                              (click)="onMenuTranscript(candidate)"
+                              class="w-full text-left px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            >
+                              💬 Open in transcript
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ═══ Inline Candidate Detail (consolidated drawer functionality) ═══ -->
+                  @if (detailCandidateId() === candidate.id) {
+                    <div class="mt-2 pl-6 border-l-2 border-blue-200 dark:border-blue-800 space-y-4">
+                      <!-- Description -->
+                      @if (candidate.intentDescription) {
+                        <div class="space-y-1">
+                          <h4 class="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Description</h4>
+                          <p class="text-xs text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{{ candidate.intentDescription }}</p>
+                        </div>
+                      }
+
+                      <!-- Tags -->
+                      @if (candidate.tags?.length) {
+                        <div class="space-y-1">
+                          <h4 class="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Tags</h4>
+                          <div class="flex flex-wrap gap-1.5">
+                            @for (tag of candidate.tags; track tag) {
+                              <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ tag }}</span>
+                            }
+                          </div>
+                        </div>
+                      }
+
+                      <!-- Hierarchy labels -->
+                      <div class="flex items-center gap-2 flex-wrap">
+                        @if (candidate.systemId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" title="Linked to system">{{ getHierarchyLabel(candidate.systemId, 'system') }}</span>
+                        }
+                        @if (candidate.subsystemId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400" title="Linked to subsystem">{{ getHierarchyLabel(candidate.subsystemId, 'subsystem') }}</span>
+                        }
+                        @if (candidate.featureId) {
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" title="Linked to feature">{{ getHierarchyLabel(candidate.featureId, 'feature') }}</span>
+                        }
+                      </div>
+
+                      <!-- Segment Sets expander -->
+                      <div class="space-y-1">
+                        <button
+                          (click)="$event.stopPropagation()"
+                          class="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
+                          {{ candidateSegmentSetsLoading() ? 'Loading segments…' : (candidateSegmentSets().length + ' Segment Set' + (candidateSegmentSets().length !== 1 ? 's' : '')) }}
+                        </button>
+                        @if (candidateSegmentSets().length > 0) {
+                          <div class="space-y-1 pl-2 border-l border-blue-100 dark:border-blue-900">
+                            @for (ss of candidateSegmentSets(); track ss.id) {
+                              <div class="flex items-start gap-2 text-[10px]">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 mt-1 flex-shrink-0"></span>
+                                <div class="min-w-0">
+                                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ ss.name || ss.id }}</span>
+                                  @if (ss.description) {
+                                    <span class="text-gray-400 dark:text-gray-500 ml-1">— {{ ss.description }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        } @else if (!candidateSegmentSetsLoading()) {
+                          <button
+                            (click)="openTranscriptForCandidate(null, candidate); $event.stopPropagation()"
+                            class="text-[10px] text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors pl-2"
+                          >
+                            View full transcript →
+                          </button>
+                        }
+                      </div>
+
+                      <!-- Source meta + dates -->
+                      <div class="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500 flex-wrap">
+                        @if (candidate.harvestSource) {
+                          <span class="font-mono truncate max-w-[220px]" [title]="candidate.harvestSource">{{ candidate.harvestSource }}</span>
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        }
+                        <span>Created {{ formatDate(candidate.createdAt) }}</span>
+                        <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        <span>Updated {{ formatDate(candidate.updatedAt) }}</span>
+                        @if (candidate.validFrom) {
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                          <span>From {{ formatDate(candidate.validFrom) }}</span>
+                        }
+                        @if (candidate.validUntil) {
+                          <span class="inline-block w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                          <span>Until {{ formatDate(candidate.validUntil) }}</span>
+                        }
+                      </div>
+
+                      <!-- Open Questions expander -->
+                      @if (docCandidateOpenQuestions().length > 0) {
+                        <div>
+                          <button
+                            (click)="toggleOpenQuestions(); $event.stopPropagation()"
+                            class="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+                          >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            {{ openQuestionsExpanded() ? 'Hide Open Questions' : 'Open Questions' }}
+                            @if (docCandidateOpenQuestions().length > 0) {
+                              <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium">{{ docCandidateOpenQuestions().length }}</span>
+                            }
+                          </button>
+                          @if (openQuestionsExpanded()) {
+                            <div class="mt-2 space-y-2">
+                              @for (q of docCandidateOpenQuestions(); track q.id) {
+                                <div class="rounded-lg border border-gray-100 dark:border-gray-700 p-2.5">
+                                  <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium" [class]="getOpenQuestionStatusClass(q.status)">{{ q.status }}</span>
+                                    @if (q.category) {
+                                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium" [class]="getOpenQuestionCategoryClass(q.category)">{{ q.category }}</span>
+                                    }
+                                    @if (q.blocking) {
+                                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Blocking</span>
+                                    }
+                                  </div>
+                                  @if (q.description) {
+                                    <p class="text-[11px] text-gray-700 dark:text-slate-300 mt-1 leading-relaxed">{{ q.description }}</p>
+                                  }
+                                  @if ((openQuestionAnswers()[q.id] || []).length > 0) {
+                                    <div class="mt-2 space-y-1.5 border-t border-gray-50 dark:border-gray-700/50 pt-2">
+                                      @for (answer of openQuestionAnswers()[q.id]; track answer.id) {
+                                        <div class="text-[10px] text-gray-600 dark:text-slate-400 leading-relaxed">
+                                          <span class="font-medium text-gray-500 dark:text-slate-500">↳</span> {{ answer.content || answer.body }}
+                                        </div>
+                                      }
+                                    </div>
+                                  } @else if (openQuestionAnswersLoading()) {
+                                    <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-400">
+                                      <svg class="animate-spin w-2.5 h-2.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                      Loading answers…
+                                    </div>
+                                  }
+                                </div>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+
+                      <!-- Actions (consolidated from the removed drawer) -->
+                      @if (promotionError()) {
+                        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 flex items-center gap-2">
+                          <span class="text-[10px] text-red-700 dark:text-red-400">{{ promotionError() }}</span>
+                        </div>
+                      }
+                      <div class="flex flex-wrap gap-1.5 pt-1">
+                        @if (candidate.systemId && candidate.status !== 'promoted') {
+                          <button
+                            (click)="promoteCandidateToRequirement(candidate); $event.stopPropagation()"
+                            [disabled]="promotingToRequirementId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            Promote to Requirement
+                          </button>
+                        }
+                        <button
+                          (click)="spawnPlanFromPanel(candidate); $event.stopPropagation()"
+                          class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-purple-500 text-white hover:bg-purple-600 transition-colors shadow-sm"
+                        >
+                          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                          Spawn Plan
+                        </button>
+                        @if (candidate.status === 'linked' || candidate.status === 'pending') {
+                          <button
+                            (click)="promoteCandidate(candidate); $event.stopPropagation()"
+                            [disabled]="promotingId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                          >
+                            Stage
+                          </button>
+                        }
+                        @if (candidate.status !== 'rejected' && candidate.status !== 'promoted') {
+                          <button
+                            (click)="onMenuReject(candidate); $event.stopPropagation()"
+                            [disabled]="promotingId() === candidate.id"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            ✕ Reject
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Load more candidates -->
+            @if (selectedHarvestId() && selectedHarvestCandidates().length < candidateTotalCount()) {
+              <div class="p-2">
+                <button
+                  (click)="loadMoreCandidates()"
+                  [disabled]="candidatesLoadingMore()"
+                  class="w-full text-center text-xs font-medium py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                >
+                  @if (candidatesLoadingMore()) {
+                    <svg class="animate-spin inline w-3 h-3 mr-1" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  }
+                  Load more candidates ({{ candidateTotalCount() - selectedHarvestCandidates().length }} remaining)
+                </button>
+              </div>
+            }
+          }
+        </div>
+    </div>
   </div>
 
   <!-- Status Bar -->
-  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
-    <span>Sorted by {{ dataService.harvestSortLabels[dataService.harvestSortMode()] }}</span>
-    <span>{{ dataService.harvestFilteredHarvests().length }} harvest{{ dataService.harvestFilteredHarvests().length !== 1 ? 's' : '' }} shown</span>
+  <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 transition-colors">
+    <span>
+      Sorted by {{ dataService.harvestSortLabels[dataService.harvestSortMode()] }} ·
+      {{ dataService.harvestFilteredHarvests().length }} of {{ dataService.harvestTotalCount() }} shown
+    </span>
+    @if (selectedHarvest() && filteredCandidates().length > 0) {
+      <span class="hidden sm:inline">j/k navigate · Enter transcript · s stage · x reject · c done</span>
+    } @else {
+      <span>{{ dataService.harvestHasCandidatesCount() }} with candidates</span>
+    }
+    </div>
   </div>
+
 </div>
 
-<!-- ── Transcript Modal ──────────────────────────────────────── -->
+<!-- ── Transcript Drawer (right slide-over) ──────────────────── -->
 @if (transcriptOpen()) {
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" (click)="closeTranscript()">
-  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full flex flex-col transition-all duration-300"
-       (click)="$event.stopPropagation()"
-       [class.max-w-3xl]="!transcriptMaximized()"
-       [class.max-h-[90vh]]="!transcriptMaximized()"
-       [class.m-4]="!transcriptMaximized()"
-       [class.fixed]="transcriptMaximized()"
-       [class.inset-4]="transcriptMaximized()"
-       [class.max-w-none]="transcriptMaximized()"
-       [class.max-h-none]="transcriptMaximized()">
+<div class="fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" (click)="closeTranscript()"></div>
+  <div class="absolute inset-y-0 right-0 flex flex-col bg-white dark:bg-gray-800 shadow-2xl border-l border-gray-200 dark:border-gray-700 transition-all duration-300"
+       [class.max-w-2xl]="!transcriptMaximized()"
+       [class.w-full]="transcriptMaximized()">
     <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
@@ -580,7 +865,7 @@
       } @else {
         <!-- Segmentation State Bar -->
         @if (segmentMode()) {
-          <div class="mb-4 px-4 py-3 rounded-lg border transition-colors" [class]="getStateBarClasses()">
+          <div class="mb-4 px-3 py-3 rounded-lg border transition-colors" [class]="getStateBarClasses()">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3 text-xs">
                 <span class="font-semibold" [class]="getStateBarTextClasses()">
@@ -630,7 +915,7 @@
         <!-- Committed Segments (collapsible) -->
         @for (seg of committedSegments(); track seg.id; let segIdx = $index) {
           <div class="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden mb-3">
-            <div class="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 flex items-center justify-between cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition-colors"
+            <div class="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 flex items-center justify-between cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 transition-colors"
                  (click)="toggleSegmentExpanded(seg.id)">
               <div class="flex items-center gap-2">
                 <svg class="w-3 h-3 text-blue-500 transition-transform"
@@ -648,7 +933,7 @@
               </div>
             </div>
             @if (isSegmentExpanded(seg.id)) {
-              <div class="px-4 py-2 text-[11px] text-gray-500 dark:text-gray-400 border-t border-blue-100 dark:border-blue-800/50">
+              <div class="px-3 py-2 text-[11px] text-gray-500 dark:text-gray-400 border-t border-blue-100 dark:border-blue-800/50">
                 @if (seg.notes_md) {
                   <p class="mb-1">{{ seg.notes_md }}</p>
                 }
@@ -661,7 +946,7 @@
         @for (unit of transcriptUnits(); track unit.turn_index) {
           <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <!-- Unit Header -->
-            <div class="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div class="px-3 py-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">
                 {{ unit.heading || ('Turn ' + (unit.turn_index + 1)) }}
               </span>
@@ -779,7 +1064,7 @@
     </div>
 
     <!-- Hottest Topics Panel -->
-    <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+    <div class="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-5 py-4">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
           <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
@@ -788,7 +1073,7 @@
         <span class="text-xs text-gray-400 dark:text-gray-500">top 15 tags</span>
       </div>
       @if (dataService.harvestHotTopicsLoading()) {
-        <div class="flex items-center justify-center py-4">
+        <div class="flex items-center justify-center py-3">
           <svg class="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
         </div>
       } @else if (dataService.harvestHotTopicsData().length > 0) {

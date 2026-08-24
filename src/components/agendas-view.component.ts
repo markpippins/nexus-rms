@@ -2,13 +2,14 @@ import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ListViewSortBarComponent } from './list-view-sort-bar.component';
 import { ToastService } from '../services/toast.service';
 import { formatDate, getStatusColor, createHierarchyLabel, getCohesionColor, getCohesionBg } from '../app/utils/view-helpers';
 
 @Component({
   selector: 'app-agendas-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ListViewSortBarComponent],
   templateUrl: './agendas-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -53,15 +54,17 @@ export class AgendasViewComponent {
       result = result.filter((a: any) =>
         (a.title || '').toLowerCase().includes(term) ||
         (a.scope || '').toLowerCase().includes(term) ||
-        (a.planner_analysis || '').toLowerCase().includes(term)
+        (a.plannerAnalysis || '').toLowerCase().includes(term)
       );
     }
     return this.dataService.sortByMode(result);
   });
 
   statusCounts = computed(() => {
+    const agendas = this.agendas();
+    if (!agendas) return {};
     const counts: Record<string, number> = {};
-    for (const a of this.agendas()) {
+    for (const a of agendas) {
       const s = a.status || 'draft';
       counts[s] = (counts[s] || 0) + 1;
     }
@@ -69,7 +72,9 @@ export class AgendasViewComponent {
   });
 
   totalItems = computed(() => {
-    return this.agendas().reduce((sum, a) => sum + (a.item_count || a.items?.length || 0), 0);
+    const agendas = this.agendas();
+    if (!agendas) return 0;
+    return agendas.reduce((sum, a) => sum + (a.itemCount || a.items?.length || 0), 0);
   });
 
   constructor() {
@@ -122,8 +127,8 @@ export class AgendasViewComponent {
     this.openingAgenda.set(true);
 
     try {
-      // 1. Get full agenda with items, resolve candidate IDs from both direct
-      //    harvest_candidate items AND intent_record items that link to candidates.
+      // 1. Get full agenda with items, resolve candidate IDs from direct
+      //    harvest_candidate items.
       const full = await this.dataService.getAgenda(agenda.id);
       const items = full?.items || [];
 
@@ -133,33 +138,10 @@ export class AgendasViewComponent {
         .map((item: any) => item.source_id)
         .filter(Boolean);
 
-      // Intent record items — fetch each and extract its candidate_id (with source_ref fallback)
-      const intentRecordItems = items.filter((item: any) => item.source_type === 'intent_record');
-      const intentCandidateIds: string[] = [];
-      let unresolvableIntentRecords = 0;
-      if (intentRecordItems.length > 0) {
-        const intentResults = await Promise.allSettled(
-          intentRecordItems.map((item: any) => this.dataService.getIntentRecord(item.source_id))
-        );
-        for (const result of intentResults) {
-          if (result.status === 'fulfilled' && result.value) {
-            // Prefer candidate_id, fall back to source_ref (both point to the same harvest candidate)
-            const cid = result.value.candidate_id || result.value.source_ref;
-            if (cid) {
-              intentCandidateIds.push(cid);
-            } else {
-              unresolvableIntentRecords++;
-            }
-          } else {
-            unresolvableIntentRecords++;
-          }
-        }
-      }
-
       // Assessment items — can't resolve to candidates, track for warning
       const assessmentCount = items.filter((item: any) => item.source_type === 'assessment').length;
 
-      const agendaCandidateIds = new Set<string>([...directCandidateIds, ...intentCandidateIds]);
+      const agendaCandidateIds = new Set<string>(directCandidateIds);
 
       if (agendaCandidateIds.size === 0) {
         // If there are assessment items, still navigate so the user can see them
@@ -175,8 +157,6 @@ export class AgendasViewComponent {
         }
         const parts: string[] = [];
         if (items.length > 0) parts.push(`${items.length} total items`);
-        if (intentRecordItems.length > 0) parts.push(`${intentRecordItems.length} intent records`);
-        if (unresolvableIntentRecords > 0) parts.push(`${unresolvableIntentRecords} unresolvable intent records`);
         this.toastService.show(
           'No harvest candidates found' + (parts.length > 0 ? ' — ' + parts.join(', ') : '') + '.',
           'info'
@@ -300,7 +280,6 @@ export class AgendasViewComponent {
 
   getSourceTypeIcon(sourceType: string): string {
     const icons: Record<string, string> = {
-      intent_record: '📋',
       requirement: '📐',
       agent_record: '📝',
       harvest_candidate: '💡',
@@ -321,7 +300,9 @@ export class AgendasViewComponent {
   }
 
   viewCandidate(sourceId: string) {
+    // Candidates/Intents views are hidden (collapse into Harvests). The app-level
+    // right panel reacts to selectedHarvestCandidateId and shows the document.
     this.dataService.selectedHarvestCandidateId.set(sourceId);
-    this.dataService.viewMode.set('candidates');
+    this.dataService.viewMode.set('harvests');
   }
 }

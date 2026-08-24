@@ -2,12 +2,13 @@ import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { ListViewSortBarComponent } from './list-view-sort-bar.component';
 import { formatDate, getStatusColor, createHierarchyLabel } from '../app/utils/view-helpers';
 
 @Component({
   selector: 'app-specifications-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ListViewSortBarComponent],
   templateUrl: './specifications-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -181,7 +182,6 @@ export class SpecificationsViewComponent {
 
   getSourceTypeIcon(sourceType: string): string {
     const icons: Record<string, string> = {
-      intent_record: '📋',
       requirement: '📐',
       agent_record: '📝',
       harvest_candidate: '💡',

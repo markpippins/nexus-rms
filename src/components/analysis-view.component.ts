@@ -74,7 +74,7 @@ export class AnalysisViewComponent {
       // Deduplicate by harvest_id — one tab per harvest that has at least one staged candidate
       const seenHarvests = new Map<string, HarvestCandidate>();
       for (const c of staged) {
-        const hid = c.harvest_id;
+        const hid = c.harvestId;
         if (hid && !seenHarvests.has(hid)) {
           seenHarvests.set(hid, c);
         }
@@ -83,7 +83,7 @@ export class AnalysisViewComponent {
       const tabList: TabData[] = Array.from(seenHarvests.entries()).map(([harvestId, candidate]) => ({
         candidate,
         harvestId,
-        harvestTitle: candidate.harvest_source || harvestId.slice(0, 12),
+        harvestTitle: candidate.harvestSource || harvestId.slice(0, 12),
         transcriptUnits: [],
         transcriptStats: null,
         transcriptCandidates: [],
@@ -399,19 +399,19 @@ export class AnalysisViewComponent {
   transformingId = signal<string | null>(null);
 
   async transformToRequirement(candidate: HarvestCandidate) {
-    if (!candidate.system_id) return;
+    if (!candidate.systemId) return;
     this.transformingId.set(candidate.id);
     try {
       await this.dataService.addRequirement({
         title: candidate.title || 'Untitled Candidate',
-        description: candidate.intent_description || '',
+        description: candidate.intentDescription || '',
         status: 'Backlog',
         priority: 'Medium',
         reqType: 'Task',
         candidateId: candidate.id,
-        systemId: candidate.system_id,
-        subsystemId: candidate.subsystem_id || undefined,
-        featureId: candidate.feature_id || undefined,
+        systemId: candidate.systemId,
+        subsystemId: candidate.subsystemId || undefined,
+        featureId: candidate.featureId || undefined,
       });
       // Update local state: mark as promoted
       this.tabs.update(list => list.map(t => ({

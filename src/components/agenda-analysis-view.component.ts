@@ -59,7 +59,7 @@ export class AgendaAnalysisViewComponent {
 
   /** Proportional collapse threshold: half the text length, min 300, max 800 chars. */
   plannerAnalysisThreshold = computed(() => {
-    const text = this.dataService.agendaAnalysisData()?.planner_analysis || '';
+    const text = this.dataService.agendaAnalysisData()?.plannerAnalysis || '';
     if (!text) return 500;
     return Math.min(800, Math.max(300, Math.floor(text.length / 2)));
   });
@@ -108,7 +108,7 @@ export class AgendaAnalysisViewComponent {
       for (const result of results) {
         if (result.status === 'fulfilled' && result.value) {
           const candidate = result.value;
-          const hid = candidate.harvest_id;
+          const hid = candidate.harvestId;
           if (hid && !seenHarvests.has(hid)) {
             seenHarvests.set(hid, candidate);
           }
@@ -120,7 +120,7 @@ export class AgendaAnalysisViewComponent {
       const tabList: TabData[] = Array.from(seenHarvests.entries()).map(([harvestId, candidate]) => ({
         candidate,
         harvestId,
-        harvestTitle: candidate.harvest_source || harvestId.slice(0, 12),
+        harvestTitle: candidate.harvestSource || harvestId.slice(0, 12),
         transcriptUnits: [],
         transcriptStats: null,
         transcriptCandidates: [],
@@ -494,19 +494,19 @@ export class AgendaAnalysisViewComponent {
   transformingId = signal<string | null>(null);
 
   async transformToRequirement(candidate: HarvestCandidate) {
-    if (!candidate.system_id) return;
+    if (!candidate.systemId) return;
     this.transformingId.set(candidate.id);
     try {
       await this.dataService.addRequirement({
         title: candidate.title || 'Untitled Candidate',
-        description: candidate.intent_description || '',
+        description: candidate.intentDescription || '',
         status: 'Backlog',
         priority: 'Medium',
         reqType: 'Task',
         candidateId: candidate.id,
-        systemId: candidate.system_id,
-        subsystemId: candidate.subsystem_id || undefined,
-        featureId: candidate.feature_id || undefined,
+        systemId: candidate.systemId,
+        subsystemId: candidate.subsystemId || undefined,
+        featureId: candidate.featureId || undefined,
       });
       // Update local state: mark as promoted
       this.tabs.update(list => list.map(t => ({

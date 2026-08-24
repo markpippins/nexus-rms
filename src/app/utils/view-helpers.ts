@@ -1,20 +1,22 @@
 import { computed, Signal } from '@angular/core';
 import { DataService } from '../../services/data.service';
 
-/** Status color map shared by harvest-view, analysis-view, and candidates-view. */
+/** Status color map shared by harvest-view and analysis-view. */
 export const CANDIDATE_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
   linked: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  useful: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   staged: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   promoted: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  superseded: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
 };
 
 /**
  * Format an ISO date string as "Mon D, YYYY" (e.g., "Jan 1, 2026").
  * Returns empty string for falsy input.
  */
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | number): string {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -31,6 +33,26 @@ export function formatFullDate(iso: string): string {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+/**
+ * Format an epoch-ms / ISO timestamp as a relative time ("just now", "5m ago",
+ * "3h ago", "12d ago"). Falls back to a short absolute date beyond ~30 days.
+ */
+export function relativeTime(ts: string | number | null | undefined): string {
+  if (!ts) return '';
+  const t = typeof ts === 'number' ? ts : new Date(ts).getTime();
+  if (!Number.isFinite(t)) return '';
+  const diff = Date.now() - t;
+  const abs = Math.abs(diff);
+  const min = 60_000;
+  const hour = 3_600_000;
+  const day = 86_400_000;
+  if (abs < min) return 'just now';
+  if (abs < hour) return `${Math.round(abs / min)}m ago`;
+  if (abs < day) return `${Math.round(abs / hour)}h ago`;
+  if (abs < 30 * day) return `${Math.round(abs / day)}d ago`;
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /**

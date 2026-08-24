@@ -21,10 +21,15 @@
             "tsConfig": "tsconfig.json",
             "styles": ["src/styles.css"]
           },
-          "configurations": {
-            "production": {
-              "outputHashing": "all"
-            },
+          "configurations": { "production": {
+  "outputHashing": "all",
+  "fileReplacements": [
+   {
+    "replace": "src/environments/environment.ts",
+    "with": "src/environments/environment.prod.ts"
+   }
+  ]
+ },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -36,7 +41,7 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "port": 3000,
+            "port": 4210,
             "proxyConfig": "proxy.conf.json"
           },
           "configurations": {

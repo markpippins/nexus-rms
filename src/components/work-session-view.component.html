@@ -1,20 +1,23 @@
 
-<div class="flex-1 h-full overflow-hidden flex flex-col p-6">
-    
+<div class="flex-1 h-full overflow-hidden flex flex-col">
+  <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+    <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Work Sessions</h2>
+  </div>
+  <div class="flex-1 overflow-hidden flex flex-col p-3">
     @if (!sessions().length) {
         <div class="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            <p class="text-lg font-medium">No Work Sessions Found</p>
-            <p class="text-sm">Export a context prompt to start a session.</p>
+            <p class="text-base font-semibold">No Work Sessions Found</p>
+            <p class="text-xs">Export a context prompt to start a session.</p>
         </div>
     } @else {
-        <div class="flex-1 overflow-y-auto space-y-4 pr-2">
+        <div class="flex-1 overflow-y-auto space-y-3 pr-2">
             @for (session of sessions(); track session.id) {
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors">
                     <!-- Header -->
-                    <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
+                    <div class="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start bg-gray-50 dark:bg-gray-900/50">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
                                 <span [class]="'px-2 py-0.5 rounded text-xs font-semibold capitalize ' + getTypeClass(session.parentType)">
@@ -22,7 +25,7 @@
                                 </span>
                                 <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ session.updatedAt | date:'medium' }}</span>
                             </div>
-                            <h3 class="font-bold text-gray-800 dark:text-gray-200">{{ session.parentName }}</h3>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ session.parentName }}</h3>
                         </div>
                         <div class="flex items-center gap-2">
                              <div class="text-right mr-2">
@@ -39,7 +42,7 @@
 
                     <div class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700">
                         <!-- Context Column -->
-                        <div class="flex-1 p-4">
+                        <div class="flex-1 p-3">
                             <h4 class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold mb-2">Prompt Context</h4>
                             <div class="bg-gray-50 dark:bg-gray-900 rounded p-3 text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700">
                                 {{ session.context }}
@@ -47,7 +50,7 @@
                         </div>
 
                         <!-- Outcome Column -->
-                        <div class="flex-1 p-4 bg-blue-50/30 dark:bg-blue-900/10">
+                        <div class="flex-1 p-3 bg-blue-50/30 dark:bg-blue-900/10">
                             <div class="flex justify-between items-center mb-2">
                                 <h4 class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Outcome / Result</h4>
                                 @if (session.status === 'Completed') {
@@ -85,4 +88,5 @@
             }
         </div>
     }
+  </div>
 </div>

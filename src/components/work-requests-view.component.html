@@ -1,6 +1,6 @@
 <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
   <!-- Header -->
-  <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+  <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -38,6 +38,9 @@
         }
       </div>
     </div>
+    <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50">
+      <app-list-view-sort-bar placeholder="Search work requests..."></app-list-view-sort-bar>
+    </div>
   </div>
 
   <!-- Content -->
@@ -57,10 +60,10 @@
         </div>
 
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div class="p-6 space-y-5">
+          <div class="p-3 space-y-4">
             <!-- Title + Status -->
             <div>
-              <h3 class="text-base font-bold text-gray-800 dark:text-gray-100 leading-snug">{{ wr.title }}</h3>
+              <h3 class="text-base font-semibold text-gray-800 dark:text-gray-100 leading-snug">{{ wr.title }}</h3>
               <div class="flex items-center gap-2 mt-2 flex-wrap">
                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                       [class]="getStatusColor(wr.status)">
@@ -87,22 +90,22 @@
             }
 
             <!-- Source References -->
-            @if (wr.source_specification_id || wr.source_requirement_id) {
+            @if (wr.sourceSpecificationId || wr.sourceRequirementId) {
               <div>
                 <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Source References</h4>
                 <div class="flex items-center gap-3">
-                  @if (wr.source_specification_id) {
+                  @if (wr.sourceSpecificationId) {
                     <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
                       Specification
-                      <span class="font-mono">{{ wr.source_specification_id.slice(0, 12) }}</span>
+                      <span class="font-mono">{{ wr.sourceSpecificationId.slice(0, 12) }}</span>
                     </span>
                   }
-                  @if (wr.source_requirement_id) {
+                  @if (wr.sourceRequirementId) {
                     <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                       Requirement
-                      <span class="font-mono">{{ wr.source_requirement_id.slice(0, 12) }}</span>
+                      <span class="font-mono">{{ wr.sourceRequirementId.slice(0, 12) }}</span>
                     </span>
                   }
                 </div>
@@ -130,20 +133,20 @@
             <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
               <h4 class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Details</h4>
               <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                @if (wr.created_by) {
+                @if (wr.createdBy) {
                   <div class="flex justify-between">
                     <span class="text-gray-400 dark:text-gray-500">Created by</span>
-                    <span class="text-gray-600 dark:text-gray-300">{{ wr.created_by }}</span>
+                    <span class="text-gray-600 dark:text-gray-300">{{ wr.createdBy }}</span>
                   </div>
                 }
                 <div class="flex justify-between">
                   <span class="text-gray-400 dark:text-gray-500">Created</span>
-                  <span class="text-gray-600 dark:text-gray-300">{{ formatFullDate(wr.created_at) }}</span>
+                  <span class="text-gray-600 dark:text-gray-300">{{ formatFullDate(wr.createdAt) }}</span>
                 </div>
-                @if (wr.updated_at && wr.updated_at !== wr.created_at) {
+                @if (wr.updatedAt && wr.updatedAt !== wr.createdAt) {
                   <div class="flex justify-between">
                     <span class="text-gray-400 dark:text-gray-500">Updated</span>
-                    <span class="text-gray-600 dark:text-gray-300">{{ formatFullDate(wr.updated_at) }}</span>
+                    <span class="text-gray-600 dark:text-gray-300">{{ formatFullDate(wr.updatedAt) }}</span>
                   </div>
                 }
               </div>
@@ -170,7 +173,7 @@
     }
     <!-- Error state -->
     @else if (error()) {
-      <div class="flex flex-col items-center justify-center py-20 px-4">
+      <div class="flex flex-col items-center justify-center py-20 px-3">
         <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md text-center">
           <svg class="w-10 h-10 text-red-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -179,7 +182,7 @@
           <p class="text-xs text-red-500 dark:text-red-400/80 mb-4">{{ error() }}</p>
           <button
             (click)="retryTrigger.update(v => v + 1)"
-            class="px-4 py-1.5 text-xs font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
           >
             Retry
           </button>
@@ -188,7 +191,7 @@
     }
     <!-- No selection -->
     @else if (!dataService.selectedSystemId()) {
-      <div class="flex flex-col items-center justify-center py-20 px-4 text-center">
+      <div class="flex flex-col items-center justify-center py-20 px-3 text-center">
         <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
@@ -198,7 +201,7 @@
     }
     <!-- Empty state -->
     @else if (filteredWorkRequests().length === 0) {
-      <div class="flex flex-col items-center justify-center py-20 px-4 text-center">
+      <div class="flex flex-col items-center justify-center py-20 px-3 text-center">
         <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
         </svg>
@@ -208,7 +211,7 @@
     }
     <!-- Work request cards -->
     @else {
-      <div class="p-4 space-y-3">
+      <div class="p-3 space-y-3">
         @for (wr of filteredWorkRequests(); track wr.id) {
           <div
             (click)="selectWorkRequest(wr)"
@@ -216,7 +219,7 @@
             [class]="selectedWorkRequestId() === wr.id ? 'ring-2 ring-cyan-400 dark:ring-cyan-600' : ''"
           >
             <!-- Card header -->
-            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700/50 flex items-start justify-between gap-3">
+            <div class="px-3 py-3 border-b border-gray-100 dark:border-gray-700/50 flex items-start justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{{ wr.title }}</h3>
                 @if (wr.description) {
@@ -233,7 +236,7 @@
             </div>
 
             <!-- Card body -->
-            <div class="px-4 py-2.5 space-y-2">
+            <div class="px-3 py-2.5 space-y-2">
               <!-- Intent -->
               @if (wr.intent) {
                 <div>
@@ -243,20 +246,20 @@
               }
 
               <!-- Source references -->
-              @if (wr.source_specification_id || wr.source_requirement_id) {
+              @if (wr.sourceSpecificationId || wr.sourceRequirementId) {
                 <div class="flex items-center gap-3 text-[11px]">
-                  @if (wr.source_specification_id) {
+                  @if (wr.sourceSpecificationId) {
                     <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
                       Spec
-                      <span class="text-[10px] font-mono text-gray-400">{{ wr.source_specification_id.slice(0, 8) }}</span>
+                      <span class="text-[10px] font-mono text-gray-400">{{ wr.sourceSpecificationId.slice(0, 8) }}</span>
                     </span>
                   }
-                  @if (wr.source_requirement_id) {
+                  @if (wr.sourceRequirementId) {
                     <span class="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                       Req
-                      <span class="text-[10px] font-mono text-gray-400">{{ wr.source_requirement_id.slice(0, 8) }}</span>
+                      <span class="text-[10px] font-mono text-gray-400">{{ wr.sourceRequirementId.slice(0, 8) }}</span>
                     </span>
                   }
                 </div>
@@ -280,15 +283,15 @@
             </div>
 
             <!-- Card footer -->
-            <div class="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+            <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
               <div class="flex items-center gap-3">
-                @if (wr.created_by) {
-                  <span>{{ wr.created_by }}</span>
+                @if (wr.createdBy) {
+                  <span>{{ wr.createdBy }}</span>
                 }
-                <span>{{ formatFullDate(wr.created_at) }}</span>
+                <span>{{ formatFullDate(wr.createdAt) }}</span>
               </div>
-              @if (wr.updated_at && wr.updated_at !== wr.created_at) {
-                <span>Updated {{ formatDate(wr.updated_at) }}</span>
+              @if (wr.updatedAt && wr.updatedAt !== wr.createdAt) {
+                <span>Updated {{ formatDate(wr.updatedAt) }}</span>
               }
             </div>
           </div>
@@ -298,7 +301,7 @@
   </div>
 
   <!-- Status bar -->
-  <div class="flex-shrink-0 h-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-[10px] text-gray-400 dark:text-gray-500 transition-colors">
+  <div class="flex-shrink-0 h-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center px-3 text-[10px] text-gray-400 dark:text-gray-500 transition-colors">
     @if (selectedWorkRequest()) {
       Viewing detail
     } @else {

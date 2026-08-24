@@ -1,12 +1,13 @@
 import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../services/data.service';
+import { ListViewSortBarComponent } from './list-view-sort-bar.component';
 import { formatDate, formatFullDate, getStatusColor, getStatusIcon, createHierarchyLabel } from '../app/utils/view-helpers';
 
 @Component({
   selector: 'app-work-requests-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ListViewSortBarComponent],
   templateUrl: './work-requests-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -32,6 +33,7 @@ export class WorkRequestsViewComponent {
     const term = this.dataService.listViewSearchTerm().toLowerCase().trim();
     const filter = this.statusFilter();
     let all = this.workRequests();
+    if (!all) return [];
     if (term) {
       all = all.filter((wr: any) =>
         (wr.title || '').toLowerCase().includes(term) ||
@@ -44,9 +46,11 @@ export class WorkRequestsViewComponent {
   });
 
   readonly statusCounts = computed(() => {
+    const wrList = this.workRequests();
+    if (!wrList) return {};
     const counts: Record<string, number> = {};
     for (const s of this.canonicalStatuses) counts[s] = 0;
-    for (const wr of this.workRequests()) {
+    for (const wr of wrList) {
       const s = wr.status || 'DRAFT';
       counts[s] = (counts[s] || 0) + 1;
     }
@@ -100,7 +104,7 @@ export class WorkRequestsViewComponent {
       promise
         .then(({ workRequests }) => {
           if (currentId !== requestId) return;
-          this.workRequests.set(workRequests);
+          this.workRequests.set(workRequests || []);
           this.loading.set(false);
         })
         .catch((err: any) => {

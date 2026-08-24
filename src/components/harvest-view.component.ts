@@ -1,26 +1,27 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, inject, signal, computed, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../services/data.service';
+import { HarvestFilterBarComponent } from './harvest-filter-bar.component';
 import { ToastService } from '../services/toast.service';
-import { formatDate, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses } from '../app/utils/view-helpers';
-import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry } from '../models/data.models';
+import { relativeTime, getStatusColor, CANDIDATE_STATUS_COLORS, getBlockTypeBadgeClasses, formatDate, lookupHierarchyName } from '../app/utils/view-helpers';
+import { HarvestCandidate, SegmentEntry, ProjectionOverrideEntry, SegmentSet } from '../models/data.models';
 
 interface HarvestEntry {
   id: string;
-  source_path: string;
-  source_filename: string;
+  sourcePath: string;
+  sourceFilename: string;
   model: string;
-  total_candidates: number;
+  totalCandidates: number;
   tags: string[] | null;
   metadata: any;
-  created_at: string;
-  code_blocks?: number;
+  createdAt: number; // epoch ms — /api/harvests camelCases rows (camelCaseRow converts Date→getTime())
+  codeBlocks?: number;
   turns?: number;
-  blocks_per_turn?: number;
-  user_turns?: number;
-  keyword_hits?: number;
-  tag_frequency?: number;
+  blocksPerTurn?: number;
+  userTurns?: number;
+  keywordHits?: number;
+  tagFrequency?: number;
 }
 
 interface TranscriptUnit {
@@ -44,7 +45,7 @@ interface TranscriptBlock {
 @Component({
   selector: 'app-harvest-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HarvestFilterBarComponent],
   templateUrl: './harvest-view.component.html',
   host: { class: 'flex-1 flex flex-col min-h-0' },
 })
@@ -142,11 +143,208 @@ export class HarvestViewComponent {
 
   // Filter state
   hideCompleted = signal(false);
+  /** Status filter for the candidate inbox ('all' or a CandidateStatus). */
+  candidateStatusFilter = signal<string>('all');
+
+  readonly candidateStatusChips = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'linked', label: 'Linked' },
+    { key: 'useful', label: 'Staged' },
+    { key: 'promoted', label: 'Promoted' },
+    { key: 'rejected', label: 'Rejected' },
+    { key: 'superseded', label: 'Superseded' },
+  ];
+
+  /** Per-status counts for the filter chips. */
+  candidateStatusCounts = computed(() => {
+    const map: Record<string, number> = { pending: 0, linked: 0, useful: 0, promoted: 0, rejected: 0, superseded: 0 };
+    const source = this.selectedHarvestId() ? this.selectedHarvestCandidates() : this.candidatePool();
+    for (const c of source) {
+      const s = c.status || 'pending';
+      map[s] = (map[s] ?? 0) + 1;
+    }
+    return map;
+  });
 
   filteredCandidates = computed(() => {
-    if (!this.hideCompleted()) return this.selectedHarvestCandidates();
-    return this.selectedHarvestCandidates().filter(c => !c.completed);
+    // Use harvest-specific candidates when a harvest is selected,
+    // otherwise use the candidate pool (all candidates or hierarchy-filtered).
+    const source = this.selectedHarvestId() ? this.selectedHarvestCandidates() : this.candidatePool();
+    let list = source;
+    if (this.hideCompleted()) list = list.filter(c => !c.completed);
+    const sf = this.candidateStatusFilter();
+    if (sf !== 'all') list = list.filter(c => (c.status || 'pending') === sf);
+    const total = source.length;
+    if (list.length !== total) {
+      console.log(`[HarvestView] Candidate filter active: ${total} → ${list.length} (hideCompleted=${this.hideCompleted()}, statusFilter=${sf})`);
+    }
+    return list;
   });
+
+  // ── Inline candidate detail (consolidated from the removed right slide panel) ──
+  /** Candidate whose detail is expanded inline in the inbox. */
+  detailCandidateId = signal<string | null>(null);
+  private detailRequestId = 0;
+  /** Segment sets for the currently expanded candidate. */
+  candidateSegmentSets = signal<SegmentSet[]>([]);
+  candidateSegmentSetsLoading = signal(false);
+
+  /** The candidate shown in the inline detail (falls back to fetched detail). */
+  detailCandidate = computed(() => {
+    const id = this.detailCandidateId();
+    if (!id) return null;
+    return this.selectedHarvestCandidates().find(c => c.id === id) || null;
+  });
+
+  /** Open questions linked to the candidate shown in the inline detail. */
+  docCandidateOpenQuestions = computed(() => {
+    const c = this.detailCandidate();
+    if (!c) return [];
+    return this.dataService.openQuestionsFor(c.id);
+  });
+
+  // ── Open Questions expander state ────────────────────────────
+  openQuestionsExpanded = signal(false);
+  openQuestionAnswersLoading = signal(false);
+  openQuestionAnswers = signal<Record<string, any[]>>({});
+
+  toggleOpenQuestions() {
+    if (this.openQuestionsExpanded()) {
+      this.openQuestionsExpanded.set(false);
+      return;
+    }
+    this.openQuestionsExpanded.set(true);
+    this.loadOpenQuestionAnswers();
+  }
+
+  /** Fetch the answer thread for every linked open question (parallel, independent). */
+  private async loadOpenQuestionAnswers() {
+    const questions = this.docCandidateOpenQuestions();
+    if (questions.length === 0) return;
+    this.openQuestionAnswersLoading.set(true);
+    try {
+      const results = await Promise.allSettled(
+        questions.map(q =>
+          this.dataService.getOpenQuestionAnswers(q.id)
+            .then(({ answers }) => [q.id, answers] as const)
+        )
+      );
+      const map: Record<string, any[]> = {};
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          const [id, answers] = r.value;
+          map[id] = answers;
+        } else {
+          console.error('Failed to load answers for an open question:', r.reason);
+        }
+      }
+      this.openQuestionAnswers.set(map);
+    } finally {
+      this.openQuestionAnswersLoading.set(false);
+    }
+  }
+
+  getOpenQuestionStatusClass(status: string): string {
+    const map: Record<string, string> = {
+      OPEN: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      RESOLVED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      WONT_FIX: 'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+    };
+    return map[status] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
+  getOpenQuestionCategoryClass(category: string): string {
+    const map: Record<string, string> = {
+      NEEDS_SPEC: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      BLOCKER: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      CLARIFICATION: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      TECHNICAL: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+      PROCESS: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    };
+    return map[category] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  }
+
+  /** Toggle the inline detail for a candidate (closing any other open detail). */
+  toggleCandidateDetail(candidate: HarvestCandidate) {
+    const wasOpen = this.detailCandidateId() === candidate.id;
+    this.detailCandidateId.set(wasOpen ? null : candidate.id);
+    this.openQuestionsExpanded.set(false);
+    this.openQuestionAnswers.set({});
+    this.candidateSegmentSets.set([]);
+    this.dataService.selectedHarvestCandidateId.set(
+      this.detailCandidateId() ? candidate.id : null
+    );
+    // Fetch segment sets for the expanded candidate's harvest
+    if (!wasOpen && candidate.harvestId) {
+      this.candidateSegmentSetsLoading.set(true);
+      this.dataService.getSegmentSetsForHarvest(candidate.harvestId)
+        .then(sets => this.candidateSegmentSets.set(sets))
+        .catch(() => this.candidateSegmentSets.set([]))
+        .finally(() => this.candidateSegmentSetsLoading.set(false));
+    }
+  }
+
+  getHierarchyLabel(id: string, type: 'system' | 'subsystem' | 'feature'): string {
+    return lookupHierarchyName(this.dataService, id, type);
+  }
+
+  readonly formatDate = formatDate;
+
+  /** Open the spawn plan modal for a candidate (hierarchy-nav watches the signal). */
+  spawnPlanFromPanel(candidate: HarvestCandidate) {
+    this.dataService.spawnPlanIntent.set(candidate);
+  }
+
+  /** Promote the detail candidate to a requirement (same flow as the removed drawer). */
+  promotingToRequirementId = signal<string | null>(null);
+  promotionError = signal<string | null>(null);
+
+  async promoteCandidateToRequirement(candidate: HarvestCandidate) {
+    this.promotingToRequirementId.set(candidate.id);
+    this.promotionError.set(null);
+    try {
+      const newReq = await this.dataService.promoteCandidateToRequirement(candidate.id);
+      if (newReq) {
+        await this.dataService.refreshRequirements();
+        if (newReq.systemId) this.dataService.selectedSystemId.set(newReq.systemId);
+        if (newReq.subsystemId) this.dataService.selectedSubsystemId.set(newReq.subsystemId);
+        if (newReq.featureId) this.dataService.selectedFeatureId.set(newReq.featureId);
+        this.dataService.viewMode.set('board');
+      } else {
+        this.promotionError.set('Failed to create requirement — check console for details');
+      }
+    } catch (err: any) {
+      this.promotionError.set(err.message || 'Promotion failed');
+    } finally {
+      this.promotingToRequirementId.set(null);
+    }
+  }
+
+  /** The harvest object for the currently selected row (left pane). */
+  selectedHarvest = computed(() => {
+    const id = this.selectedHarvestId();
+    if (!id) return null;
+    return this.dataService.harvests().find(h => h.id === id) ?? null;
+  });
+
+  /** Staged/promoted/done breakdown for the selected harvest's loaded candidates. */
+  selectedHarvestProgress = computed(() => {
+    const cands = this.selectedHarvestCandidates();
+    const total = cands.length;
+    if (total === 0) return { total: 0, staged: 0, promoted: 0, done: 0, pct: 0 };
+    const staged = cands.filter(c => c.status === 'useful').length;
+    const promoted = cands.filter(c => c.status === 'promoted').length;
+    const done = cands.filter(c => c.completed).length;
+    const moved = staged + promoted;
+    return { total, staged, promoted, done, pct: Math.round((moved / total) * 100) };
+  });
+
+  // ── Keyboard focus + overflow menu state ─────────────────────
+  focusedCandidateId = signal<string | null>(null);
+  openMenuId = signal<string | null>(null);
+  candidateTotalCount = signal(0);
+  candidatesLoadingMore = signal(false);
 
   // Bulk selection state
   selectedCandidateIds = signal<Set<string>>(new Set());
@@ -166,8 +364,82 @@ export class HarvestViewComponent {
   // Transform to Requirement state
   transformingId = signal<string | null>(null);
 
+  // ── Candidate pool: the candidates shown in the main list ────────────
+  // When no harvest is selected, this holds ALL candidates (or hierarchy-filtered).
+  // When a harvest IS selected, toggleHarvest() populates it with that harvest's candidates.
+  candidatePool = signal<HarvestCandidate[]>([]);
+  candidatePoolLoading = signal(false);
+  candidatePoolTotal = signal(0);
+
+  /** Fetch candidates into the pool. Pass filters to narrow; omit for all candidates. */
+  private async fetchCandidatePool(filters?: { harvestId?: string; systemId?: string; subsystemId?: string; featureId?: string }) {
+    this.candidatePoolLoading.set(true);
+    try {
+      const data = await this.dataService.listHarvestCandidates({ ...filters, pageSize: 500 });
+      this.candidatePool.set(data.candidates || []);
+      this.candidatePoolTotal.set(data.count ?? (data.candidates || []).length);
+      console.log(`[HarvestView] Candidate pool loaded: ${this.candidatePoolTotal()} total, ${this.candidatePool().length} returned`, filters || {});
+    } catch (err: any) {
+      console.error('Failed to fetch candidate pool:', err);
+    } finally {
+      this.candidatePoolLoading.set(false);
+    }
+  }
+
   constructor() {
     this.dataService.fetchHarvests();
+    // Load ALL candidates on init (no harvest or hierarchy filter).
+    this.fetchCandidatePool();
+    // Warm the open-question index (fire-and-forget) so ❓ badges populate.
+    this.dataService.loadOpenQuestionIndex();
+
+    // Tree filters the harvests: refetch whenever the hierarchy selection changes,
+    // and clear the selected harvest when its context no longer applies.
+    // Also refetch the candidate pool with hierarchy filters.
+    effect(() => {
+      const sysId = this.dataService.selectedSystemId();
+      const subId = this.dataService.selectedSubsystemId();
+      const featId = this.dataService.selectedFeatureId();
+      console.log(`[HarvestView] Tree filter changed → system=${sysId} subsystem=${subId} feature=${featId}, refetching harvests + candidates`);
+      this.dataService.fetchHarvests();
+      // Clear harvest selection and refetch candidate pool with hierarchy filters
+      this.selectedHarvestId.set(null);
+      this.selectedHarvestCandidates.set([]);
+      this.focusedCandidateId.set(null);
+      this.detailCandidateId.set(null);
+      this.fetchCandidatePool({
+        ...(sysId ? { systemId: sysId } : {}),
+        ...(subId ? { subsystemId: subId } : {}),
+        ...(featId ? { featureId: featId } : {}),
+      });
+    });
+
+    // External detail requests (e.g. agendas-view sets selectedHarvestCandidateId and
+    // switches to harvests): find the candidate's harvest, select it, and expand the
+    // inline detail so the drawer behavior survives in the content pane.
+    effect(() => {
+      const id = this.dataService.selectedHarvestCandidateId();
+      if (!id) return;
+      if (this.selectedHarvestCandidates().some(c => c.id === id)) {
+        this.detailCandidateId.set(id);
+        return;
+      }
+      if (this.dataService.viewMode() !== 'harvests') return;
+      const requestId = ++this.detailRequestId;
+      this.dataService.getHarvestCandidate(id).then(cand => {
+        if (requestId !== this.detailRequestId) return;
+        if (!cand?.harvestId) return;
+        if (this.selectedHarvestId() !== cand.harvestId) {
+          this.toggleHarvest(cand.harvestId).then(() => {
+            if (this.dataService.selectedHarvestCandidateId() === id) {
+              this.detailCandidateId.set(id);
+            }
+          });
+        } else {
+          this.detailCandidateId.set(id);
+        }
+      });
+    });
   }
 
   async toggleHarvest(id: string) {
@@ -175,18 +447,51 @@ export class HarvestViewComponent {
     if (this.selectedHarvestId() === id) {
       this.selectedHarvestId.set(null);
       this.selectedHarvestCandidates.set([]);
+      this.candidateTotalCount.set(0);
+      this.focusedCandidateId.set(null);
+      this.openMenuId.set(null);
       return;
     }
     this.selectedHarvestId.set(id);
     this.selectedCandidateIds.set(new Set()); // clear selection on harvest switch
+    this.candidateStatusFilter.set('all');
+    this.focusedCandidateId.set(null);
+    this.openMenuId.set(null);
     this.candidatesLoading.set(true);
     try {
-      const data = await this.dataService.listHarvestCandidates({ harvestId: id, limit: 100 });
+      const data = await this.dataService.listHarvestCandidates({ harvestId: id, page: 1, pageSize: 100 });
       this.selectedHarvestCandidates.set(data.candidates || []);
+      this.candidateTotalCount.set(data.count ?? (data.candidates || []).length);
+      const total = this.candidateTotalCount();
+      const filtered = this.selectedHarvestCandidates().length;
+      console.log(`[HarvestView] Candidates for harvest ${id}: total=${total}, loaded=${filtered}`);
     } catch (err: any) {
       console.error('Failed to fetch candidates:', err);
     } finally {
       this.candidatesLoading.set(false);
+    }
+  }
+
+  /** Append the next page of candidates for the selected harvest. */
+  async loadMoreCandidates() {
+    const hid = this.selectedHarvestId();
+    if (!hid || this.candidatesLoading() || this.candidatesLoadingMore()) return;
+    if (this.selectedHarvestCandidates().length >= this.candidateTotalCount()) return;
+    this.candidatesLoadingMore.set(true);
+    try {
+      const data = await this.dataService.listHarvestCandidates({
+        harvestId: hid,
+        page: Math.floor(this.selectedHarvestCandidates().length / 100) + 1,
+        pageSize: 100,
+      });
+      const known = new Set(this.selectedHarvestCandidates().map(c => c.id));
+      const fresh = (data.candidates || []).filter((c: HarvestCandidate) => !known.has(c.id));
+      this.selectedHarvestCandidates.update(list => [...list, ...fresh]);
+      this.candidateTotalCount.set(data.count ?? this.selectedHarvestCandidates().length);
+    } catch (err: any) {
+      console.error('Failed to load more candidates:', err);
+    } finally {
+      this.candidatesLoadingMore.set(false);
     }
   }
 
@@ -296,14 +601,14 @@ export class HarvestViewComponent {
     }
   }
 
-  async openTranscript(harvest: HarvestEntry) {
+  async openTranscript(harvest: HarvestEntry, anchorPhrase?: string) {
     // Reset find-in-file state for fresh transcript
     this.transcriptSearchQuery.set('');
     this.transcriptShowSearch.set(false);
     this.transcriptSearchMatchIndex.set(0);
     this.transcriptOpen.set(true);
     this.transcriptHarvestId.set(harvest.id);
-    this.transcriptTitle.set(harvest.source_filename);
+    this.transcriptTitle.set(harvest.sourceFilename);
     this.transcriptLoading.set(true);
     try {
       const data = await this.dataService.getHarvestTranscript(harvest.id);
@@ -314,11 +619,35 @@ export class HarvestViewComponent {
       this.transcriptSnapshotId.set(data.snapshotId);
       this.committedSegments.set(data.committedSegments || []);
       this.activeOverrides.set(data.activeOverrides || []);
+      if (anchorPhrase) this.anchorTranscriptTo(anchorPhrase);
     } catch (err: any) {
       console.error('Failed to load transcript:', err);
     } finally {
       this.transcriptLoading.set(false);
     }
+  }
+
+  /** Open the transcript for a candidate, anchored near its title text (heuristic search). */
+  openTranscriptForCandidate(harvest: HarvestEntry | null, candidate: HarvestCandidate | null) {
+    if (!candidate) return;
+    // If no harvest provided, look it up from the candidate's harvestId
+    const h = harvest || this.dataService.harvests().find(h => h.id === candidate.harvestId) || null;
+    if (!h) return;
+    this.openTranscript(h as HarvestEntry, candidate.title || undefined);
+  }
+
+  /** Heuristic anchor: search the transcript for the candidate title and jump to the first match. */
+  private anchorTranscriptTo(phrase: string) {
+    const tokens = phrase.split(/\s+/).filter(w => w.length > 3).slice(0, 4);
+    if (tokens.length === 0) return;
+    this.transcriptSearchQuery.set(tokens.join(' '));
+    this.transcriptShowSearch.set(true);
+    setTimeout(() => {
+      if (this.transcriptTotalMatches() > 0) {
+        this.transcriptSearchMatchIndex.set(0);
+        this.scrollToTranscriptMatch();
+      }
+    }, 60);
   }
 
   toggleTranscriptMaximize() {
@@ -516,9 +845,9 @@ export class HarvestViewComponent {
     this.promotingId.set(candidate.id);
     try {
       await this.dataService.promoteHarvestCandidate(candidate.id);
-      // Update local state
+      // Update local state (the server's state machine stores this as 'useful')
       const updated = this.selectedHarvestCandidates().map(c =>
-        c.id === candidate.id ? { ...c, status: 'staged' } : c
+        c.id === candidate.id ? { ...c, status: 'useful' } : c
       );
       this.selectedHarvestCandidates.set(updated);
     } catch (err: any) {
@@ -662,23 +991,23 @@ export class HarvestViewComponent {
   // ── Promote to Plan ──────────────────────────────────────────
 
   get stagedCandidates(): HarvestCandidate[] {
-    return this.selectedHarvestCandidates().filter(c => c.status === 'staged');
+    return this.selectedHarvestCandidates().filter(c => c.status === 'useful');
   }
 
   async transformToRequirement(candidate: HarvestCandidate) {
-    if (!candidate.system_id) return;
+    if (!candidate.systemId) return;
     this.transformingId.set(candidate.id);
     try {
       await this.dataService.addRequirement({
         title: candidate.title || 'Untitled Candidate',
-        description: candidate.intent_description || '',
+        description: candidate.intentDescription || '',
         status: 'Backlog',
         priority: 'Medium',
         reqType: 'Task',
         candidateId: candidate.id,
-        systemId: candidate.system_id,
-        subsystemId: candidate.subsystem_id || undefined,
-        featureId: candidate.feature_id || undefined,
+        systemId: candidate.systemId,
+        subsystemId: candidate.subsystemId || undefined,
+        featureId: candidate.featureId || undefined,
       });
       // Mark as promoted locally
       const updated = this.selectedHarvestCandidates().map(c =>
@@ -715,39 +1044,136 @@ export class HarvestViewComponent {
     }
   }
 
-  // ── Keyboard handling for transcript find-in-file ────────────
+  // ── Keyboard handling: transcript find-in-file + candidate triage ──
+
+  /** Close the overflow menu when clicking anywhere else. */
+  @HostListener('document:click')
+  closeMenuOnOutsideClick() {
+    if (this.openMenuId()) this.openMenuId.set(null);
+  }
+
+  private isTypingTarget(el: HTMLElement | null): boolean {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
 
   @HostListener('document:keydown', ['$event'])
   handleKeydown(e: KeyboardEvent) {
-    if (!this.transcriptOpen()) return;
+    if (this.transcriptOpen()) {
+      // Ctrl+F / Cmd+F — toggle transcript search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
+        e.preventDefault();
+        this.toggleTranscriptSearch();
+        return;
+      }
 
-    // Ctrl+F / Cmd+F — toggle transcript search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && !e.shiftKey) {
-      e.preventDefault();
-      this.toggleTranscriptSearch();
+      // Escape — close search
+      if (e.key === 'Escape' && this.transcriptShowSearch()) {
+        this.transcriptShowSearch.set(false);
+        this.transcriptSearchQuery.set('');
+        return;
+      }
+
+      // Enter / Shift+Enter — navigate matches
+      if (e.key === 'Enter' && this.transcriptShowSearch()) {
+        e.preventDefault();
+        if (e.shiftKey) this.transcriptPrevMatch();
+        else this.transcriptNextMatch();
+      }
       return;
     }
 
-    // Escape — close search
-    if (e.key === 'Escape' && this.transcriptShowSearch()) {
-      this.transcriptShowSearch.set(false);
-      this.transcriptSearchQuery.set('');
+    // Candidate inbox triage (j/k move, Enter open, s stage, x reject, c done)
+    if (this.isTypingTarget(e.target as HTMLElement)) return;
+    const targetTag = (e.target as HTMLElement | null)?.tagName;
+    // Let native activation win on buttons/links (Enter/Space would both trigger).
+    if ((e.key === 'Enter' || e.key === ' ') && (targetTag === 'BUTTON' || targetTag === 'A')) return;
+    if (!this.selectedHarvestId() || this.filteredCandidates().length === 0) return;
+    const key = e.key;
+    if (key === 'j' || key === 'ArrowDown') {
+      e.preventDefault();
+      this.moveKeyboardFocus(1);
       return;
     }
-
-    // Enter / Shift+Enter — navigate matches
-    if (e.key === 'Enter' && this.transcriptShowSearch()) {
+    if (key === 'k' || key === 'ArrowUp') {
       e.preventDefault();
-      if (e.shiftKey) this.transcriptPrevMatch();
-      else this.transcriptNextMatch();
+      this.moveKeyboardFocus(-1);
+      return;
     }
+    const focused = this.filteredCandidates().find(c => c.id === this.focusedCandidateId());
+    if (!focused) return;
+    switch (key) {
+      case 'Enter':
+        e.preventDefault();
+        this.openTranscriptForCandidate(null, focused);
+        break;
+      case 's':
+        e.preventDefault();
+        if (focused.status === 'linked' || focused.status === 'pending') this.promoteCandidate(focused);
+        break;
+      case 'x':
+        e.preventDefault();
+        if (focused.status !== 'rejected' && focused.status !== 'promoted') this.rejectCandidate(focused);
+        break;
+      case 'c':
+        e.preventDefault();
+        this.toggleCandidateCompleted(focused);
+        break;
+    }
+  }
+
+  /** Move keyboard focus across the visible candidate list (wraps). */
+  moveKeyboardFocus(delta: number) {
+    const vis = this.filteredCandidates();
+    if (vis.length === 0) return;
+    const idx = vis.findIndex(c => c.id === this.focusedCandidateId());
+    const next = idx === -1 ? 0 : (idx + delta + vis.length) % vis.length;
+    this.focusedCandidateId.set(vis[next].id);
+    setTimeout(() => {
+      const el = document.getElementById('cand-' + this.focusedCandidateId());
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
+  }
+
+  /** Set keyboard focus when a candidate row is clicked. */
+  focusCandidate(candidate: HarvestCandidate) {
+    this.focusedCandidateId.set(candidate.id);
+  }
+
+  // ── Overflow menu (⋯) actions ───────────────────────────────
+
+  toggleCandidateMenu(candidateId: string) {
+    this.openMenuId.update(v => (v === candidateId ? null : candidateId));
+  }
+
+  onMenuTransform(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.transformToRequirement(candidate);
+  }
+
+  onMenuReject(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.rejectCandidate(candidate);
+  }
+
+  onMenuToggleCompleted(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    this.toggleCandidateCompleted(candidate);
+  }
+
+  onMenuTranscript(candidate: HarvestCandidate) {
+    this.openMenuId.set(null);
+    // Always look up the harvest by candidate.harvestId so each candidate
+    // opens its own transcript, even when a different harvest is selected.
+    this.openTranscriptForCandidate(null, candidate);
   }
 
   getStatusColor(status: string): string {
     return getStatusColor(status, CANDIDATE_STATUS_COLORS);
   }
 
-  readonly formatDate = formatDate;
+  readonly relativeTime = relativeTime;
 
   truncatePath(path: string): string {
     if (!path) return '';

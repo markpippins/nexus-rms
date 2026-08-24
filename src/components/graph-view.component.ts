@@ -32,27 +32,27 @@ interface GraphLink {
   template: `
     <div class="h-full flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <!-- Toolbar -->
-      <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4 shadow-sm z-10 gap-3 flex-shrink-0 transition-colors">
+      <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-3 shadow-sm z-10 gap-3 flex-shrink-0 transition-colors">
         
         <!-- Schema Toggle Buttons -->
         <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 shadow-sm">
           <button
             (click)="graphSchema.set('knowledge')"
-            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+            class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
             [class]="graphSchema() === 'knowledge'
               ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
           >Knowledge</button>
           <button
             (click)="graphSchema.set('audit')"
-            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+            class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
             [class]="graphSchema() === 'audit'
               ? 'bg-white dark:bg-gray-600 text-purple-700 dark:text-purple-300 shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
           >Audit</button>
           <button
             (click)="graphSchema.set('combined')"
-            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200"
+            class="px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200"
             [class]="graphSchema() === 'combined'
               ? 'bg-white dark:bg-gray-600 text-emerald-700 dark:text-emerald-300 shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
@@ -60,7 +60,7 @@ interface GraphLink {
         </div>
 
         <!-- Center: Graph Info -->
-        <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
           @if (loading()) {
             <span class="inline-flex items-center gap-1">
               <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -234,9 +234,9 @@ interface GraphLink {
 
           <!-- Legend Panel -->
           @if (showLegend()) {
-            <div class="absolute bottom-4 left-4 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-4 max-w-[240px] select-none">
+            <div class="absolute bottom-3 left-3 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 max-w-[240px] select-none">
               <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Legend</span>
+                <span class="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Legend</span>
                 <button 
                   (click)="showLegend.set(false)"
                   class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-0.5"
@@ -351,7 +351,7 @@ interface GraphLink {
                 @if (sel.data.description) {
                   <div>
                     <div class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Description</div>
-                    <p class="text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{{ sel.data.description }}</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{{ sel.data.description }}</p>
                   </div>
                 }
 
@@ -392,7 +392,7 @@ interface GraphLink {
                         >
                           <span class="w-2 h-2 rounded-full flex-shrink-0" [style.background-color]="edge.other.color"></span>
                           <div class="min-w-0 flex-1">
-                            <div class="text-xs text-gray-700 dark:text-gray-300 truncate font-medium">{{ edge.other.label }}</div>
+                            <div class="text-sm text-gray-700 dark:text-gray-300 truncate font-medium">{{ edge.other.label }}</div>
                             <div class="text-[9px] text-gray-400 dark:text-gray-500">
                               <span class="font-mono">{{ edge.direction }}</span> {{ edge.type }}
                             </div>
@@ -429,7 +429,7 @@ interface GraphLink {
                   <svg class="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                   </svg>
-                  <p class="text-xs font-medium text-gray-400 dark:text-gray-500">No node selected</p>
+                  <p class="text-sm font-medium text-gray-400 dark:text-gray-500">No node selected</p>
                   <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Click a node on the graph to view its details.</p>
                 </div>
               </div>
@@ -439,7 +439,7 @@ interface GraphLink {
       </div>
 
       <!-- Status Bar -->
-      <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
+      <div class="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-3 text-sm text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors">
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Knowledge

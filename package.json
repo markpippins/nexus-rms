@@ -6,23 +6,29 @@
   "scripts": {
     "dev": "ng serve",
     "build": "ng build",
-    "preview": "ng serve --configuration=production"
+    "preview": "ng serve --configuration=production",
+    "test": "vitest run --root src"
   },
   "dependencies": {
-    "@angular/build": "^21.0.0",
+    "@angular/build": "^21.2.21",
     "@angular/cli": "^21.0.0",
-    "@angular/common": "^21.0.0",
-    "@angular/compiler": "^21.0.0",
-    "@angular/compiler-cli": "^21.0.0",
-    "@angular/core": "^21.0.0",
-    "@angular/forms": "^21.0.8",
-    "@angular/platform-browser": "^21.0.0",
+    "@angular/common": "^21.2.21",
+    "@angular/compiler": "^21.2.21",
+    "@angular/compiler-cli": "^21.2.21",
+    "@angular/core": "^21.2.21",
+    "@angular/forms": "^21.2.21",
+    "@angular/platform-browser": "^21.2.21",
     "@google/genai": "^1.35.0",
     "rxjs": "^7.8.2",
     "tailwindcss": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "typescript": "~5.8.2"
+    "happy-dom": "^20.11.6",
+    "typescript": "~5.8.2",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "tar": "^7.5.19"
   }
 }

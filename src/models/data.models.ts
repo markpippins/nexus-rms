@@ -199,20 +199,21 @@ export type GraphSchemaMode = 'knowledge' | 'audit' | 'combined';
 
 export interface HarvestCandidate {
   id: string;
-  harvest_id: string | null;
+  harvestId: string | null;
   title: string;
-  intent_description: string | null;
+  intentDescription: string | null;
   status: string;
   completed: boolean | null;
   tags: string[] | null;
-  system_id: string | null;
-  subsystem_id: string | null;
-  feature_id: string | null;
-  harvest_source: string | null;
-  valid_from: string;
-  valid_until: string;
-  created_at: string;
-  updated_at: string;
+  systemId: string | null;
+  subsystemId: string | null;
+  featureId: string | null;
+  harvestSource: string | null;
+  workRequestId: string | null;
+  validFrom: string;
+  validUntil: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SpawnPlanRequest {
@@ -382,3 +383,11 @@ export const AI_PLATFORMS: Record<string, string[]> = {
   'Web (Gemini)': ['Gemini Advanced', 'Gemini 2.5 Flash'],
   'Custom': ['Other']
 };
+
+export interface SegmentSet {
+  id: string;
+  name: string;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}

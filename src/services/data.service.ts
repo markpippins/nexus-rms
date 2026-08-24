@@ -2,7 +2,10 @@ import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { UiEventBusService } from '../app/services/ui-event-bus.service';
-import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse } from '../models/data.models';
+import { System, Subsystem, Feature, Requirement, ReqType, AcceptanceCriterion, Status, WorkSession, FolderCategory, WorkspaceEntry, SystemDocsResponse, SubsystemDocsResponse, AuditFile, AuditScanResult, KnowledgeViewResponse, AuditGraphResponse, KnowledgeSummary, KnowledgeCrossReference, HarvestCandidate, SpawnPlanRequest, SpawnPlanResponse, RequirementDependency, SnapshotEntry, BlocksResponse, SegmentEntry, ProjectionOverrideEntry, ProjectionResponse, ReferencesResponse, SegmentSet } from '../models/data.models';
+
+// LAC rule 4: substance target from env (VITE_SUBSTANCE_URL), documented default :3115.
+const SUBSTANCE_BASE = ((import.meta as any).env?.['VITE_SUBSTANCE_URL'] as string | undefined) || 'http://localhost:3115';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -16,6 +19,10 @@ export class DataService {
   readonly systems = signal<System[]>([]);
   readonly requirements = signal<Requirement[]>([]);
   readonly workSessions = signal<WorkSession[]>([]);
+
+  // ── Inventory Counts (tree badges) ──────────────────────────────
+  /** Flat map: nodeId → { reqCount, planCount, candidateCount, ... } */
+  readonly inventoryCounts = signal<Record<string, Record<string, number>>>({});
 
   // ── Loading / Error Signals ────────────────────────────────────
   readonly loading = signal<boolean>(false);
@@ -51,17 +58,13 @@ export class DataService {
 
   // ── UI State ───────────────────────────────────────────────────
   readonly theme = signal<'steel' | 'light' | 'dark'>('steel');
-  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'candidates' | 'intents' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'>('board');
+  readonly viewMode = signal<'board' | 'table' | 'docs' | 'sessions' | 'info' | 'audit' | 'graph' | 'harvests' | 'analysis' | 'agendas' | 'agenda-analysis' | 'specifications' | 'plans' | 'work-requests' | 'cpf-funnel'>('board');
 
   // Shared search term for all list views
   readonly listViewSearchTerm = signal('');
 
-  readonly listViewModes = new Set(['harvests', 'candidates', 'intents', 'agendas', 'specifications', 'plans', 'work-requests']);
-  readonly isListViewMode = computed(() => this.listViewModes.has(this.viewMode()));
-
   // Shared sort & filter panel for all list views
   readonly listViewSortMode = signal<string>('newest');
-  readonly listViewFiltersExpanded = signal(false);
 
   readonly listViewSortOptions: string[] = ['newest', 'oldest', 'alpha_asc', 'alpha_desc'];
   readonly listViewSortLabels: Record<string, string> = {
@@ -71,12 +74,9 @@ export class DataService {
     alpha_desc: 'Z → A',
   };
 
-  toggleListViewFilters() {
-    this.listViewFiltersExpanded.update(v => !v);
-  }
-
   /** Client-side sort helper — respects listViewSortMode. Use at end of filteredXxx() computeds. */
-  sortByMode<T extends Record<string, any>>(items: T[]): T[] {
+  sortByMode<T extends Record<string, any>>(items: T[] | null | undefined): T[] {
+    if (!items) return [];
     const mode = this.listViewSortMode();
     if (mode === 'newest' || mode === 'oldest') {
       const sorted = [...items];
@@ -117,8 +117,7 @@ export class DataService {
   // Cross-component signal: when set to true, the right panel auto-expands transcript
   readonly autoExpandTranscript = signal(false);
 
-  // ── Harvest Search & Filter State (shared with main toolbar) ────
-  readonly harvestSearchTerm = signal('');
+  // ── Harvest Search & Filter State ───────────────────────────────
   readonly harvestSortMode = signal<string>('created_at');
   readonly harvestKeywordFilter = signal('');
   readonly harvestHideEmpty = signal(false);
@@ -148,21 +147,25 @@ export class DataService {
   };
 
   readonly harvestHasCandidatesCount = computed(() =>
-    this.harvests().filter(h => h.total_candidates > 0).length
+    this.harvests().filter(h => h.totalCandidates > 0).length
   );
 
   readonly harvestFilteredHarvests = computed(() => {
     const term = this.listViewSearchTerm().toLowerCase().trim();
     let list = this.harvests();
+    const rawCount = list.length;
     if (term) {
       list = list.filter((h: any) =>
-        h.source_filename.toLowerCase().includes(term) ||
-        h.source_path.toLowerCase().includes(term) ||
+        (h.sourceFilename || '').toLowerCase().includes(term) ||
+        (h.sourcePath || '').toLowerCase().includes(term) ||
         (h.model && h.model.toLowerCase().includes(term))
       );
     }
     if (this.harvestHideEmpty()) {
-      list = list.filter((h: any) => h.total_candidates > 0);
+      list = list.filter((h: any) => h.totalCandidates > 0);
+    }
+    if (list.length !== rawCount) {
+      console.log(`[HarvestFilter] Client-side filter: ${rawCount} → ${list.length} (searchTerm='${term}', hideEmpty=${this.harvestHideEmpty()})`);
     }
     return list;
   });
@@ -171,20 +174,45 @@ export class DataService {
   readonly harvests = signal<any[]>([]);
   readonly harvestsLoading = signal(false);
   readonly harvestsError = signal<string | null>(null);
+  /** Server-reported total harvests matching current filters (for load-more). */
+  readonly harvestTotalCount = signal(0);
+  private harvestPrefsLoaded = false;
 
   async fetchHarvests() {
+    if (!this.harvestPrefsLoaded) {
+      this.harvestPrefsLoaded = true;
+      await this.restoreHarvestPrefs();
+    }
     this.harvestsLoading.set(true);
     this.harvestsError.set(null);
     try {
       const data = await this.listHarvests({
-        limit: 200,
+        page: 1,
+        pageSize: 100,
         sort: this.harvestSortMode(),
         keyword: this.harvestKeywordFilter() || undefined,
         tag: this.harvestTagFilter() || undefined,
+        search: this.listViewSearchTerm() || undefined,
         dateFrom: this.harvestDateFrom() || undefined,
         dateTo: this.harvestDateTo() || undefined,
+        systemId: this.selectedSystemId() || undefined,
+        subsystemId: this.selectedSubsystemId() || undefined,
+        featureId: this.selectedFeatureId() || undefined,
+      });
+      const count = (data.harvests || []).length;
+      console.log(`[HarvestFetch] API returned ${count} harvests (server total: ${data.count ?? count})`, {
+        search: this.listViewSearchTerm() || null,
+        systemId: this.selectedSystemId(),
+        subsystemId: this.selectedSubsystemId(),
+        featureId: this.selectedFeatureId(),
+        keyword: this.harvestKeywordFilter() || null,
+        tag: this.harvestTagFilter() || null,
+        hideEmpty: this.harvestHideEmpty(),
+        sort: this.harvestSortMode(),
       });
       this.harvests.set(data.harvests || []);
+      this.harvestTotalCount.set(data.count ?? count);
+      this.persistHarvestPrefs();
     } catch (err: any) {
       this.harvestsError.set(err.message || 'Failed to fetch harvests');
     } finally {
@@ -192,9 +220,68 @@ export class DataService {
     }
   }
 
+  /** Append the next page of harvests (server-side offset pagination). */
+  async loadMoreHarvests() {
+    if (this.harvestsLoading() || this.harvests().length >= this.harvestTotalCount()) return;
+    this.harvestsLoading.set(true);
+    try {
+      const data = await this.listHarvests({
+        page: Math.floor(this.harvests().length / 100) + 1,
+        pageSize: 100,
+        sort: this.harvestSortMode(),
+        keyword: this.harvestKeywordFilter() || undefined,
+        tag: this.harvestTagFilter() || undefined,
+        search: this.listViewSearchTerm() || undefined,
+        dateFrom: this.harvestDateFrom() || undefined,
+        dateTo: this.harvestDateTo() || undefined,
+        systemId: this.selectedSystemId() || undefined,
+        subsystemId: this.selectedSubsystemId() || undefined,
+        featureId: this.selectedFeatureId() || undefined,
+      });
+      const known = new Set(this.harvests().map((h: any) => h.id));
+      const fresh = (data.harvests || []).filter((h: any) => !known.has(h.id));
+      this.harvests.update(list => [...list, ...fresh]);
+      this.harvestTotalCount.set(data.count ?? this.harvests().length);
+    } catch (err: any) {
+      this.harvestsError.set(err.message || 'Failed to load more harvests');
+    } finally {
+      this.harvestsLoading.set(false);
+    }
+  }
+
+  /** Persist current harvest filter/sort prefs via the preferences API. */
+  private persistHarvestPrefs() {
+    this.savePreference('harvestView', {
+      sortMode: this.harvestSortMode(),
+      tagFilter: this.harvestTagFilter(),
+      hideEmpty: this.harvestHideEmpty(),
+      dateFrom: this.harvestDateFrom(),
+      dateTo: this.harvestDateTo(),
+    });
+  }
+
+  /** Restore saved harvest filter/sort prefs (called once before the first fetch). */
+  private async restoreHarvestPrefs() {
+    const prefs = await this.getPreference<any>('harvestView');
+    if (!prefs || typeof prefs !== 'object') return;
+    if (typeof prefs.sortMode === 'string' && this.harvestSortOptions.includes(prefs.sortMode)) {
+      this.harvestSortMode.set(prefs.sortMode);
+    }
+    if (typeof prefs.tagFilter === 'string') this.harvestTagFilter.set(prefs.tagFilter);
+    if (typeof prefs.hideEmpty === 'boolean') this.harvestHideEmpty.set(prefs.hideEmpty);
+    if (typeof prefs.dateFrom === 'string') this.harvestDateFrom.set(prefs.dateFrom);
+    if (typeof prefs.dateTo === 'string') this.harvestDateTo.set(prefs.dateTo);
+  }
+
   setHarvestSort(mode: string) {
     this.harvestSortMode.set(mode);
     this.fetchHarvests();
+  }
+
+  /** Toggle hide-empty (client-side filter) and persist immediately. */
+  setHarvestHideEmpty(value: boolean) {
+    this.harvestHideEmpty.set(value);
+    this.persistHarvestPrefs();
   }
 
   applyHarvestKeyword() {
@@ -243,6 +330,17 @@ export class DataService {
   applyHarvestTagFilter(tag: string) {
     this.harvestTagFilter.set(tag);
     this.fetchHarvests();
+  }
+
+  private harvestSearchTimer: any = null;
+
+  /** Set the harvest-list search term and refetch from the server (debounced).
+   *  Server-side search is required because the list is paginated (100 rows) —
+   *  the client-side filter alone can never find harvests beyond the loaded page. */
+  setHarvestSearchTerm(term: string) {
+    this.listViewSearchTerm.set(term);
+    if (this.harvestSearchTimer) clearTimeout(this.harvestSearchTimer);
+    this.harvestSearchTimer = setTimeout(() => this.fetchHarvests(), 300);
   }
 
   toggleHarvestFilters() {
@@ -311,6 +409,7 @@ export class DataService {
     this.loading.set(true);
     try {
       await this.fetchAll();
+      this.fetchInventory(); // fire-and-forget — badges load async
       await this.fetchPreferences();
       if (this.systems().length === 0) {
         await this.seedFromServer();
@@ -325,28 +424,88 @@ export class DataService {
 
   async refreshData() {
     await this.fetchAll();
+    this.fetchInventory();
+  }
+
+  /** Fetch inventory rollup counts for tree badges. Fire-and-forget. */
+  async fetchInventory() {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<{ systems: any[]; subsystems: any[]; features: any[]; totals: any }>(
+          `${this.apiUrl}/inventory`
+        )
+      );
+      const counts: Record<string, Record<string, number>> = {};
+      for (const s of res.systems || []) {
+        counts[s.systemId] = {
+          subsystems: s.subsystemCount || 0,
+          features: s.featureCount || 0,
+          folders: s.folderCount || 0,
+          requirements: s.reqCount || 0,
+          plans: s.planCount || 0,
+          candidates: s.candidateCount || 0,
+          extLinks: s.extLinkCount || 0,
+        };
+      }
+      for (const sub of res.subsystems || []) {
+        counts[sub.subsystemId] = {
+          features: sub.featureCount || 0,
+          requirements: sub.reqCount || 0,
+          plans: sub.planCount || 0,
+          candidates: sub.candidateCount || 0,
+        };
+      }
+      for (const feat of res.features || []) {
+        counts[feat.featureId] = {
+          requirements: feat.reqCount || 0,
+          plans: feat.planCount || 0,
+          candidates: feat.candidateCount || 0,
+        };
+      }
+      this.inventoryCounts.set(counts);
+    } catch (err) {
+      console.warn('Failed to fetch inventory counts:', err);
+    }
+  }
+
+  /** Get badge label for a tree node, or empty string if zero counts. */
+  badgeLabel(nodeId: string): string {
+    const c = this.inventoryCounts()[nodeId];
+    if (!c) return '';
+    const parts: string[] = [];
+    if (c.requirements) parts.push(`${c.requirements} req`);
+    if (c.plans) parts.push(`${c.plans} plan`);
+    if (c.candidates) parts.push(`${c.candidates} cand`);
+    if (c.features) parts.push(`${c.features} feat`);
+    if (c.subsystems) parts.push(`${c.subsystems} sub`);
+    return parts.slice(0, 3).join(' · ');
   }
 
   async refreshRequirements() {
     try {
-      const requirements = await firstValueFrom(this.http.get<Requirement[]>(`${this.apiUrl}/requirements`));
-      if (requirements) this.requirements.set(requirements);
+      const res = await firstValueFrom(this.http.get<any>(`${this.apiUrl}/requirements`));
+      this.requirements.set(this.extractItems<Requirement>(res));
     } catch (err) {
       console.error('Failed to refresh requirements:', err);
     }
   }
 
+  /** Unwrap paginated API response — nebula-srv returns {items, total, page, pageSize} */
+  private extractItems<T>(res: any): T[] {
+    return Array.isArray(res) ? res : res?.items ?? [];
+  }
+
   private async fetchAll() {
     const [systems, requirements, sessions, workspaces] = await Promise.all([
-      firstValueFrom(this.http.get<System[]>(`${this.apiUrl}/systems`)),
-      firstValueFrom(this.http.get<Requirement[]>(`${this.apiUrl}/requirements`)),
-      firstValueFrom(this.http.get<WorkSession[]>(`${this.apiUrl}/sessions`)),
-      firstValueFrom(this.http.get<WorkspaceEntry[]>(`${this.apiUrl}/workspaces`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/systems`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/requirements`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/sessions`)),
+      firstValueFrom(this.http.get<any>(`${this.apiUrl}/workspaces`)),
     ]);
-    if (systems) this.systems.set(systems);
-    if (requirements) this.requirements.set(requirements);
-    if (sessions) this.workSessions.set(sessions);
-    if (workspaces) this.workspaces.set(workspaces);
+    this.systems.set(this.extractItems<System>(systems));
+    this.requirements.set(this.extractItems<Requirement>(requirements));
+    this.workSessions.set(this.extractItems<WorkSession>(sessions));
+    this.workspaces.set(this.extractItems<WorkspaceEntry>(workspaces));
   }
 
   private async seedFromServer() {
@@ -362,8 +521,8 @@ export class DataService {
   }
 
   refreshWorkspaces() {
-    this.http.get<WorkspaceEntry[]>(`${this.apiUrl}/workspaces`).subscribe({
-      next: (ws) => this.workspaces.set(ws),
+    this.http.get<any>(`${this.apiUrl}/workspaces`).subscribe({
+      next: (res) => this.workspaces.set(this.extractItems<WorkspaceEntry>(res)),
       error: (err) => console.error('Failed to fetch workspaces:', err),
     });
   }
@@ -374,9 +533,10 @@ export class DataService {
 
   async fetchInfoTabs(systemId: string): Promise<{ tab_id: string; content: string }[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<{ tab_id: string; content: string }[]>(`${this.apiUrl}/systems/${systemId}/info`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/systems/${systemId}/info`)
       );
+      return this.extractItems<{ tab_id: string; content: string }>(res);
     } catch {
       return [];
     }
@@ -462,17 +622,25 @@ export class DataService {
   //  HARVESTS
   // ══════════════════════════════════════════════════════════════════
 
-  async listHarvests(params?: { model?: string; limit?: number; offset?: number; sort?: string; keyword?: string; tag?: string; dateFrom?: string; dateTo?: string }): Promise<{ harvests: any[]; count: number }> {
+  async listHarvests(params?: { model?: string; limit?: number; offset?: number; page?: number; pageSize?: number; sort?: string; keyword?: string; tag?: string; search?: string; dateFrom?: string; dateTo?: string; systemId?: string; subsystemId?: string; featureId?: string }): Promise<{ harvests: any[]; count: number }> {
     try {
       const qs = new URLSearchParams();
+      // NOTE: the live nebula-srv /api/harvests endpoint honors page/pageSize only
+      // (limit/offset are silently ignored). Map the legacy limit/offset args here.
+      const pageSize = params?.pageSize ?? params?.limit ?? 100;
+      const page = params?.page ?? (params?.offset ? Math.floor(params.offset / pageSize) + 1 : 1);
       if (params?.model) qs.set('model', params.model);
-      if (params?.limit) qs.set('limit', String(params.limit));
-      if (params?.offset) qs.set('offset', String(params.offset));
+      qs.set('page', String(Math.max(1, page)));
+      qs.set('pageSize', String(Math.min(100, Math.max(1, pageSize))));
       if (params?.sort) qs.set('sort', params.sort);
       if (params?.keyword) qs.set('keyword', params.keyword);
       if (params?.tag) qs.set('tag', params.tag);
+      if (params?.search) qs.set('search', params.search);
       if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
       if (params?.dateTo) qs.set('dateTo', params.dateTo);
+      if (params?.systemId) qs.set('systemId', params.systemId);
+      if (params?.subsystemId) qs.set('subsystemId', params.subsystemId);
+      if (params?.featureId) qs.set('featureId', params.featureId);
       const query = qs.toString();
       return await firstValueFrom(
         this.http.get<{ harvests: any[]; count: number }>(`${this.apiUrl}/harvests${query ? '?' + query : ''}`)
@@ -494,13 +662,18 @@ export class DataService {
     }
   }
 
-  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; limit?: number; offset?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
+  async listHarvestCandidates(filters?: { harvestId?: string; systemId?: string; subsystemId?: string; featureId?: string; limit?: number; offset?: number; page?: number; pageSize?: number }): Promise<{ candidates: HarvestCandidate[]; count: number }> {
     try {
       const qs = new URLSearchParams();
+      // NOTE: live nebula-srv honors page/pageSize only (limit/offset are ignored).
+      const pageSize = filters?.pageSize ?? filters?.limit ?? 100;
+      const page = filters?.page ?? (filters?.offset ? Math.floor(filters.offset / pageSize) + 1 : 1);
       if (filters?.harvestId) qs.set('harvestId', filters.harvestId);
       if (filters?.systemId) qs.set('systemId', filters.systemId);
-      if (filters?.limit) qs.set('limit', String(filters.limit));
-      if (filters?.offset) qs.set('offset', String(filters.offset));
+      if (filters?.subsystemId) qs.set('subsystemId', filters.subsystemId);
+      if (filters?.featureId) qs.set('featureId', filters.featureId);
+      qs.set('page', String(Math.max(1, page)));
+      qs.set('pageSize', String(Math.min(500, Math.max(1, pageSize))));
       const query = qs.toString();
       return await firstValueFrom(
         this.http.get<{ candidates: HarvestCandidate[]; count: number }>(`${this.apiUrl}/harvest-candidates${query ? '?' + query : ''}`)
@@ -548,66 +721,6 @@ export class DataService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  //  INTENT RECORDS (hierarchy-scoped)
-  // ══════════════════════════════════════════════════════════════════
-
-  async getIntentRecord(id: string): Promise<any | null> {
-    try {
-      return await firstValueFrom(
-        this.http.get<any>(`${this.apiUrl}/intent-records/${encodeURIComponent(id)}`)
-      );
-    } catch (err) {
-      console.error('Failed to get intent record:', err);
-      return null;
-    }
-  }
-
-  async listIntentRecords(limit?: number): Promise<{ intentRecords: any[]; count: number }> {
-    try {
-      const qs = limit ? `?limit=${limit}` : '';
-      return await firstValueFrom(
-        this.http.get<{ intentRecords: any[]; count: number }>(`${this.apiUrl}/intent-records${qs}`)
-      );
-    } catch (err) {
-      console.error('Failed to list intent records:', err);
-      return { intentRecords: [], count: 0 };
-    }
-  }
-
-  async getSystemIntentRecords(systemId: string): Promise<{ systemId: string; intentRecords: any[]; count: number }> {
-    try {
-      return await firstValueFrom(
-        this.http.get<{ systemId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/systems/${systemId}/intent-records`)
-      );
-    } catch (err) {
-      console.error('Failed to fetch system intent records:', err);
-      return { systemId, intentRecords: [], count: 0 };
-    }
-  }
-
-  async getSubsystemIntentRecords(subsystemId: string): Promise<{ subsystemId: string; intentRecords: any[]; count: number }> {
-    try {
-      return await firstValueFrom(
-        this.http.get<{ subsystemId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/subsystems/${subsystemId}/intent-records`)
-      );
-    } catch (err) {
-      console.error('Failed to fetch subsystem intent records:', err);
-      return { subsystemId, intentRecords: [], count: 0 };
-    }
-  }
-
-  async getFeatureIntentRecords(featureId: string): Promise<{ featureId: string; intentRecords: any[]; count: number }> {
-    try {
-      return await firstValueFrom(
-        this.http.get<{ featureId: string; intentRecords: any[]; count: number }>(`${this.apiUrl}/features/${featureId}/intent-records`)
-      );
-    } catch (err) {
-      console.error('Failed to fetch feature intent records:', err);
-      return { featureId, intentRecords: [], count: 0 };
-    }
-  }
-
   async promoteCandidateToRequirement(candidateId: string): Promise<any | null> {
     try {
       return await firstValueFrom(
@@ -619,16 +732,6 @@ export class DataService {
     }
   }
 
-  async promoteIntentToRequirement(intentRecordId: string): Promise<any | null> {
-    try {
-      return await firstValueFrom(
-        this.http.post<any>(`${this.apiUrl}/intent-records/${encodeURIComponent(intentRecordId)}/promote-to-requirement`, {})
-      );
-    } catch (err) {
-      console.error('Failed to promote intent to requirement:', err);
-      return null;
-    }
-  }
 
   // ══════════════════════════════════════════════════════════════════
   //  AGENDAS (hierarchy-scoped, with nested items)
@@ -866,6 +969,78 @@ export class DataService {
   }
 
   // ══════════════════════════════════════════════════════════════════
+  //  OPEN QUESTIONS
+  // ══════════════════════════════════════════════════════════════════
+
+  async listOpenQuestions(params?: { limit?: number; requirementId?: string; candidateId?: string }): Promise<{ questions: any[]; count: number }> {
+    try {
+      const qs = new URLSearchParams();
+      if (params?.limit) qs.set('pageSize', String(params.limit));
+      if (params?.requirementId) qs.set('requirementId', params.requirementId);
+      if (params?.candidateId) qs.set('candidateId', params.candidateId);
+      const query = qs.toString();
+      return await firstValueFrom(
+        this.http.get<{ questions: any[]; count: number }>(`${this.apiUrl}/open-questions${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to list open questions:', err);
+      return { questions: [], count: 0 };
+    }
+  }
+
+  async getOpenQuestionAnswers(questionId: string): Promise<{ answers: any[]; count: number }> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ answers: any[]; count: number }>(`${this.apiUrl}/open-questions/${questionId}/answers`)
+      );
+    } catch (err) {
+      console.error('Failed to get open question answers:', err);
+      return { answers: [], count: 0 };
+    }
+  }
+
+  // ── Open-question index (candidateId → open questions) ────────
+  // Open questions link upward via candidate_id (snake_case rows from
+  // /api/open-questions). The list endpoint returns every OPEN question in
+  // one response (no pagination), so we fetch once and index by candidate.
+
+  readonly openQuestionsByCandidate = signal<Record<string, any[]>>({});
+  readonly openQuestionsIndexLoaded = signal(false);
+  private openQuestionsIndexLoading = false;
+
+  /** Fetch all open questions once and index them by candidateId. Idempotent. */
+  async loadOpenQuestionIndex(): Promise<void> {
+    if (this.openQuestionsIndexLoaded() || this.openQuestionsIndexLoading) return;
+    this.openQuestionsIndexLoading = true;
+    try {
+      const { questions } = await this.listOpenQuestions();
+      const byCandidate: Record<string, any[]> = {};
+      for (const q of questions || []) {
+        if (q.candidate_id) {
+          (byCandidate[q.candidate_id] ??= []).push(q);
+        }
+      }
+      this.openQuestionsByCandidate.set(byCandidate);
+      this.openQuestionsIndexLoaded.set(true);
+    } catch (err: any) {
+      console.error('Failed to load open-question index:', err);
+    } finally {
+      this.openQuestionsIndexLoading = false;
+    }
+  }
+
+  /** Number of open questions linked to a candidate (0 until the index loads). */
+  openQuestionCountFor(candidateId: string): number {
+    return this.openQuestionsByCandidate()[candidateId]?.length ?? 0;
+  }
+
+  /** Open questions linked to a candidate, newest first. */
+  openQuestionsFor(candidateId: string): any[] {
+    const list = this.openQuestionsByCandidate()[candidateId] ?? [];
+    return [...list].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
   //  IMPLEMENTATION PLANS (filesystem-based, Plan 0134)
   // ══════════════════════════════════════════════════════════════════
 
@@ -974,9 +1149,24 @@ export class DataService {
     }
   }
 
+  /** Fetch segment sets from substance-srv for a given harvest. */
+  async getSegmentSetsForHarvest(harvestId: string): Promise<SegmentSet[]> {
+    try {
+      const res = await fetch(`${SUBSTANCE_BASE}/segment-sets`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const all: SegmentSet[] = Array.isArray(data) ? data : data.items || [];
+      return all.filter((s: SegmentSet) => s.metadata?.harvest_id === harvestId);
+    } catch {
+      return [];
+    }
+  }
+
   async promoteHarvestCandidate(id: string): Promise<{ ok: boolean; result: string }> {
+    // NOTE: the server's state machine stores this as 'useful' — 'staged' is not a
+    // valid transition and the promote endpoint 400s on it. The UI displays it as "Staged".
     const res = await firstValueFrom(
-      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'staged' })
+      this.http.post<{ ok: boolean; result: string }>(`${this.apiUrl}/harvest-candidates/${id}/promote`, { status: 'useful' })
     );
     return res;
   }
@@ -1419,9 +1609,10 @@ export class DataService {
 
   async fetchChildren(parentId: string): Promise<Requirement[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<Requirement[]>(`${this.apiUrl}/requirements/${parentId}/children`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/requirements/${parentId}/children`)
       );
+      return this.extractItems<Requirement>(res);
     } catch (err) {
       console.error('Failed to fetch requirement children:', err);
       return [];
@@ -1430,9 +1621,10 @@ export class DataService {
 
   async fetchDependencies(reqId: string): Promise<RequirementDependency[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<RequirementDependency[]>(`${this.apiUrl}/requirements/${reqId}/dependencies`)
+      const res = await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/requirements/${reqId}/dependencies`)
       );
+      return this.extractItems<RequirementDependency>(res);
     } catch (err) {
       console.error('Failed to fetch requirement dependencies:', err);
       return [];
@@ -1780,6 +1972,66 @@ export class DataService {
     } catch (err) {
       console.error('Failed to list references:', err);
       return { references: [] };
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  CPF — COMPILATION READINESS FUNNEL (via nebula-srv)
+  // ════════════════════════════════════════════════════════════════
+
+  async fetchCpfCandidates(opts: {
+    all?: boolean;
+    threshold?: number;
+    candidateId?: string;
+    system?: string;
+    subsystem?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ data: any[]; count: number }> {
+    try {
+      const params = new URLSearchParams();
+      if (opts.all) params.set('all', '1');
+      if (opts.threshold !== undefined) params.set('threshold', String(opts.threshold));
+      if (opts.candidateId) params.set('candidate', opts.candidateId);
+      if (opts.system) params.set('system', opts.system);
+      if (opts.subsystem) params.set('subsystem', opts.subsystem);
+      if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+      if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+      const query = params.toString();
+      return await firstValueFrom(
+        this.http.get<{ data: any[]; count: number }>(`${this.apiUrl}/cpf${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch CPF candidates:', err);
+      return { data: [], count: 0 };
+    }
+  }
+
+  async fetchCpfCounts(opts?: { system?: string; subsystem?: string }): Promise<{
+    total: number; ready: number; promoted: number; near_miss: number; low: number;
+  }> {
+    try {
+      const params = new URLSearchParams();
+      if (opts?.system) params.set('system', opts.system);
+      if (opts?.subsystem) params.set('subsystem', opts.subsystem);
+      const query = params.toString();
+      return await firstValueFrom(
+        this.http.get<any>(`${this.apiUrl}/cpf/count${query ? '?' + query : ''}`)
+      );
+    } catch (err) {
+      console.error('Failed to fetch CPF counts:', err);
+      return { total: 0, ready: 0, promoted: 0, near_miss: 0, low: 0 };
+    }
+  }
+
+  async promoteCpfCandidate(candidateId: string): Promise<any> {
+    try {
+      return await firstValueFrom(
+        this.http.post(`${this.apiUrl}/cpf/promote`, { candidate_id: candidateId })
+      );
+    } catch (err) {
+      console.error('Failed to promote candidate:', err);
+      throw err;
     }
   }
 }

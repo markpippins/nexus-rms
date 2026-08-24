@@ -3,7 +3,7 @@
   <div class="flex-1 flex flex-col min-w-0 h-full">
     
     <!-- Action Toolbar (New, AI, Copy + Search) — visible in board/table/graph views (kanban views) -->
-    @if (dataService.viewMode() === 'board' || dataService.viewMode() === 'table' || dataService.viewMode() === 'graph') {
+    @if (displayMode() === 'board' || displayMode() === 'table' || displayMode() === 'graph') {
       <div class="h-12 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-4 shadow-sm z-10 gap-4 transition-colors">
         
         <!-- Action Buttons (Left) -->
@@ -75,59 +75,59 @@
     }
 
     <!-- Backlog / Todo Check Dashboard (Backlog #1) — shown when nothing selected in board/table mode -->
-    @if (!selectedFeature() && !selectedSubsystem() && !selectedSystem() && (dataService.viewMode() === 'board' || dataService.viewMode() === 'table')) {
-      <div class="px-6 py-4">
-        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5 shadow-sm">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    @if (!selectedFeature() && !selectedSubsystem() && !selectedSystem() && (displayMode() === 'board' || displayMode() === 'table')) {
+      <div class="px-3 pt-2 pb-1">
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-2 shadow-sm">
+          <div class="flex items-center gap-2 mb-1.5">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
               </svg>
             </div>
             <div>
-              <h2 class="text-lg font-bold text-gray-800 dark:text-gray-100">Backlog Overview</h2>
-              <p class="text-xs text-gray-500 dark:text-gray-400">Select a feature from the sidebar to view its requirements, or scan the overview below.</p>
+              <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Backlog Overview</h2>
+              <p class="text-[10px] text-gray-500 dark:text-gray-400">Select a feature from the sidebar to view its requirements, or scan the overview below.</p>
             </div>
           </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-3 border border-blue-100 dark:border-blue-900/50">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Backlog</span>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-2 border border-blue-100 dark:border-blue-900/50">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Backlog</span>
               </div>
-              <span class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().backlog }}</span>
+              <span class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().backlog }}</span>
             </div>
-            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">To Do</span>
+            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-2 border border-gray-200 dark:border-gray-700">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">To Do</span>
               </div>
-              <span class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().todo }}</span>
+              <span class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().todo }}</span>
             </div>
-            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-3 border border-blue-200 dark:border-blue-900/50">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">In Progress</span>
+            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-2 border border-blue-200 dark:border-blue-900/50">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">In Progress</span>
               </div>
-              <span class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().inProgress }}</span>
+              <span class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().inProgress }}</span>
             </div>
-            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-3 border border-green-200 dark:border-green-900/50">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Done</span>
+            <div class="bg-white dark:bg-gray-800/60 rounded-lg p-2 border border-green-200 dark:border-green-900/50">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Done</span>
               </div>
-              <span class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().done }}</span>
+              <span class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ backlogCounts().done }}</span>
             </div>
           </div>
           @if (backlogCounts().total > 0) {
-            <div class="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <div class="mt-2 flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
               <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               <span>{{ backlogCounts().total }} total requirements across all features. Select a feature from the sidebar to view and manage its requirements.</span>
             </div>
           } @else {
-            <div class="mt-3 flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+            <div class="mt-2 flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
@@ -140,32 +140,32 @@
 
     <!-- View Area (flex column so children can use flex-1 for proper scroll containment) -->
     <div class="flex-1 overflow-hidden relative flex flex-col min-h-0">
-      @if (dataService.viewMode() === 'graph') {
+      @if (displayMode() === 'graph') {
          <app-graph-view></app-graph-view>
-      } @else if (dataService.viewMode() === 'board') {
+      } @else if (displayMode() === 'board') {
          <app-board-view 
            [requirements]="filteredRequirements()"
            (editReq)="openEditModal($event)"
            (copyReqPrompt)="copyPrompt($event)"
            (duplicateReq)="openDuplicateModal($event)"
          ></app-board-view>
-      } @else if (dataService.viewMode() === 'table') {
+      } @else if (displayMode() === 'table') {
          <app-table-view 
            [requirements]="filteredRequirements()" 
            (editReq)="openEditModal($event)"
            (copyReqPrompt)="copyPrompt($event)"
            (duplicateReq)="openDuplicateModal($event)"
          ></app-table-view>
-      } @else if (dataService.viewMode() === 'sessions') {
+      } @else if (displayMode() === 'sessions') {
          <app-work-session-view></app-work-session-view>
-      } @else if (dataService.viewMode() === 'info') {
+      } @else if (displayMode() === 'info') {
          <app-system-info></app-system-info>
       } @else {
          <!-- Documentation View -->
-         <div class="flex-1 p-6 h-full overflow-hidden flex flex-col">
+         <div class="flex-1 p-3 pt-2 h-full overflow-hidden flex flex-col">
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex-1 flex flex-col overflow-hidden">
                 <!-- Docs Header -->
-                <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center flex-shrink-0">
+                <div class="p-3 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-between items-center flex-shrink-0">
                     <div class="flex items-center gap-2">
                         <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         <span class="font-semibold text-gray-700 dark:text-gray-200">
@@ -214,13 +214,12 @@
                            
                            <!-- System Folders Section (Only at System Level) -->
                            @if (!selectedSubsystem()) {
-                               <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800 flex-shrink-0">
-                                   <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">System Structure (Folders)</h3>
+                               <div class="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800 flex-shrink-0">
+                                   <h3 class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">System Structure (Folders)</h3>
                                    
-                                   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                       @for (folder of selectedSystem()?.folders || []; track folder.id) {
-                                           <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-700/50 group relative shadow-sm hover:shadow transition-shadow">
-                                                <div class="flex justify-between items-start mb-2">
+                                   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                       @for (folder of selectedSystem()?.folders || []; track folder.id) {                                            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-700/50 group relative shadow-sm hover:shadow transition-shadow">
+                                                <div class="flex justify-between items-start mb-1.5">
                                                     <div class="flex items-center gap-2 min-w-0">
                                                         <svg class="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
                                                         <span class="font-medium text-gray-800 dark:text-gray-200 text-sm truncate" [title]="folder.name">{{ folder.name }}</span>
@@ -229,7 +228,7 @@
                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                                     </button>
                                                 </div>
-                                                <div class="flex items-center gap-2 mb-2">
+                                                <div class="flex items-center gap-2 mb-1.5">
                                                     <span [class]="getCategoryClass(folder.category)" class="text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wide">{{ folder.category }}</span>
                                                 </div>
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2" [title]="folder.note">{{ folder.note }}</p>
@@ -237,7 +236,7 @@
                                        }
                                        
                                        <!-- Add Folder Card -->
-                                       <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 flex flex-col gap-2 bg-gray-50 dark:bg-gray-800/30">
+                                       <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 flex flex-col gap-2 bg-gray-50 dark:bg-gray-800/30">
                                            <input type="text" [ngModel]="newFolderName()" (ngModelChange)="newFolderName.set($event)" placeholder="Folder Name" class="text-sm bg-transparent border-none focus:ring-0 p-0 placeholder-gray-400 text-gray-800 dark:text-white font-medium">
                                            <div class="flex gap-2">
                                                 <select [ngModel]="newFolderCategory()" (ngModelChange)="newFolderCategory.set($event)" class="text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded py-1 px-1 text-gray-700 dark:text-gray-300 w-full focus:ring-blue-500 focus:border-blue-500">
@@ -254,9 +253,8 @@
                            }
 
                            <!-- Harvest Candidates Section -->
-                           @if (harvestCandidates().length > 0 || candidatesLoading()) {
-                               <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-amber-50/30 dark:bg-amber-900/10 flex-shrink-0">
-                                   <div class="flex items-center justify-between mb-3">
+                           @if (harvestCandidates().length > 0 || candidatesLoading()) {                                <div class="p-3 border-b border-gray-200 dark:border-gray-700 bg-amber-50/30 dark:bg-amber-900/10 flex-shrink-0">
+                                   <div class="flex items-center justify-between mb-2">
                                        <div class="flex items-center gap-2">
                                            <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                                            <h3 class="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Harvest Candidates ({{ candidatesCount() }})</h3>
@@ -268,9 +266,8 @@
                                    <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
                                        @for (candidate of harvestCandidates(); track candidate.id) {
                                            @if (editingCandidateId() === candidate.id) {
-                                               <!-- Edit Chip Layout -->
-                                               <div class="border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-gray-800/80 rounded-lg p-3" (click)="$event.stopPropagation()">
-                                                   <p class="text-sm font-medium mb-2 truncate text-gray-800 dark:text-gray-200">{{ candidate.title }}</p>
+                                               <!-- Edit Chip Layout --><div class="border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-gray-800/80 rounded-lg p-2" (click)="$event.stopPropagation()">
+                                                    <p class="text-sm font-medium mb-1.5 truncate text-gray-800 dark:text-gray-200">{{ candidate.title }}</p>
                                                    <div class="flex flex-col gap-2">
                                                        <select [ngModel]="editCandidateSysId()" (ngModelChange)="editCandidateSysId.set($event); editCandidateSubId.set(''); editCandidateFeatId.set('')" class="text-xs p-1 rounded border border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
                                                            <option value="">No System</option>
@@ -293,17 +290,17 @@
                                            } @else {
                                                <!-- Normal Layout -->
                                                <div
-                                                   class="border border-amber-200 dark:border-amber-800 rounded-lg p-3 bg-white dark:bg-gray-800/50 cursor-pointer hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all group/card"
+                                                   class="border border-amber-200 dark:border-amber-800 rounded-lg p-2 bg-white dark:bg-gray-800/50 cursor-pointer hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md transition-all group/card"
                                                    (click)="selectCandidate(candidate)"
                                                    title="Click to append to documentation"
                                                >
-                                                   <div class="flex items-start justify-between gap-3">
+                                                   <div class="flex items-start justify-between gap-2">
                                                        <div class="flex-1 min-w-0">
                                                            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ candidate.title }}</p>
-                                                           @if (candidate.intent_description) {
-                                                               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">{{ candidate.intent_description }}</p>
+                                                           @if (candidate.intentDescription) {
+                                                               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-3">{{ candidate.intentDescription }}</p>
                                                            }
-                                                           <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                                           <div class="flex items-center gap-2 mt-1 flex-wrap">
                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium"
                                                                    [class]="candidate.status === 'linked'
                                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -318,13 +315,13 @@
                                                                        Done
                                                                    </span>
                                                                }
-                                                               @if (candidate.harvest_source) {
-                                                                   <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono">{{ candidate.harvest_source }}</span>
+                                                               @if (candidate.harvestSource) {
+                                                                   <span class="text-[9px] text-gray-400 dark:text-gray-500 font-mono">{{ candidate.harvestSource }}</span>
                                                                }
-                                                               @if (candidate.subsystem_id && !selectedSubsystem()) {
+                                                               @if (candidate.subsystemId && !selectedSubsystem()) {
                                                                    <span class="text-[9px] text-gray-400 dark:text-gray-500">in subsystem</span>
                                                                }
-                                                               @if (candidate.feature_id && !selectedFeature()) {
+                                                               @if (candidate.featureId && !selectedFeature()) {
                                                                    <span class="text-[9px] text-gray-400 dark:text-gray-500">in feature</span>
                                                                }
                                                            </div>
@@ -368,13 +365,10 @@
                            (mousedown)="startDocsResize($event)" 
                            class="h-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-row-resize flex-shrink-0 transition-colors z-10" 
                            title="Drag to resize">
-                       </div>
-
-                       <!-- Editor Area -->
-                       <div class="flex-1 flex flex-col p-6 min-h-0 overflow-hidden">
-                           <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Context Documentation (Markdown)</label>
+                       </div>                        <!-- Editor Area -->                               <div class="flex-1 flex flex-col p-3 min-h-0 overflow-hidden">
+                           <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Context Documentation (Markdown)</label>
                            <textarea 
-                               class="flex-1 w-full p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+                               class="flex-1 w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50"  
                                [(ngModel)]="editableReadme"
                                placeholder="# Add documentation here...
                                
@@ -408,13 +402,13 @@ This content will be used as context for the AI when generating requirements."
             </span>
         </div>
         <div class="text-gray-500 dark:text-gray-500">
-           @if(dataService.viewMode() === 'docs') {
+           @if(displayMode() === 'docs') {
                Context Documentation
-           } @else if (dataService.viewMode() === 'sessions') {
+           } @else if (displayMode() === 'sessions') {
                Context Export History
-           } @else if (dataService.viewMode() === 'audit') {
+           } @else if (displayMode() === 'audit') {
                Audit Files
-           } @else if (dataService.viewMode() === 'graph') {
+           } @else if (displayMode() === 'graph') {
                Graph View
            } @else {
                {{ filteredRequirements().length }} items found
@@ -426,11 +420,11 @@ This content will be used as context for the AI when generating requirements."
 
 <!-- Create/Edit Modal -->
 @if (showModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" (keydown.escape)="closeModal()">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm" (keydown.escape)="closeModal()">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full overflow-hidden flex flex-col transition-all duration-200" [class.max-w-2xl]="!isMaximized()" [class.max-h-[90vh]]="!isMaximized()" [class.max-w-[95vw]]="isMaximized()" [class.max-h-[95vh]]="isMaximized()">
       
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+         <h2 class="text-base font-bold text-gray-800 dark:text-gray-100">
              @if (editingReqId()) { Edit Requirement }
              @else if (isDuplicating()) { Duplicate Requirement }
              @else { Create Requirement }
@@ -449,7 +443,7 @@ This content will be used as context for the AI when generating requirements."
          </div>
       </div>
 
-      <div class="p-6 overflow-y-auto">
+      <div class="p-3 overflow-y-auto">
          <div class="space-y-4">
             <!-- HIERARCHY SELECTORS -->
             <div class="grid grid-cols-3 gap-4">
@@ -594,7 +588,7 @@ This content will be used as context for the AI when generating requirements."
           </div>
       </div>
       
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
          <button (click)="closeModal()" class="px-4 py-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
          <button (click)="saveManual()" [disabled]="!newReqTitle || !modalSystemId() || saving()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center gap-2">
             @if (saving()) {
@@ -612,16 +606,16 @@ This content will be used as context for the AI when generating requirements."
 
 <!-- API Key Configuration Modal -->
 @if (showApiKeyModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transition-colors">
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
-         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">Setup AI</h2>
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+         <h2 class="text-base font-bold text-gray-800 dark:text-gray-100">Setup AI</h2>
          <button (click)="showApiKeyModal.set(false)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
          </button>
       </div>
-      <div class="p-6">
-        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+      <div class="p-3">
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">
           Please enter your Gemini API Key to enable AI features. The key will be used for this session only.
         </p>
         <input 
@@ -631,7 +625,7 @@ This content will be used as context for the AI when generating requirements."
           placeholder="Enter API Key"
         >
       </div>
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
          <button (click)="showApiKeyModal.set(false)" class="px-4 py-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
          <button (click)="configureApiKey()" [disabled]="!apiKeyInput" class="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:bg-gray-300 dark:disabled:bg-gray-600">
            Save & Enable
@@ -643,22 +637,22 @@ This content will be used as context for the AI when generating requirements."
 
 <!-- AI Modal -->
 @if (showAiModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col transition-colors">
       
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-purple-50 dark:bg-purple-900/20">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-purple-50 dark:bg-purple-900/20">
          <div class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600 dark:text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-600 dark:text-purple-400" viewBox="0 0 20 20" fill="currentColor">
                <path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clip-rule="evenodd" />
             </svg>
-            <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">AI Requirement Generator</h2>
+            <h2 class="text-base font-bold text-gray-800 dark:text-gray-100">AI Requirement Generator</h2>
          </div>
          <button (click)="showAiModal.set(false)" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
          </button>
       </div>
 
-      <div class="p-6">
+      <div class="p-3">
          @if (isGenerating()) {
            <div class="flex flex-col items-center justify-center py-8">
              <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 dark:border-purple-400"></div>
@@ -677,7 +671,7 @@ This content will be used as context for the AI when generating requirements."
          }
       </div>
       
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
          <button [disabled]="isGenerating()" (click)="showAiModal.set(false)" class="px-4 py-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
          <button 
            (click)="generateAiRequirements()" 
@@ -694,10 +688,10 @@ This content will be used as context for the AI when generating requirements."
 
 <!-- Spawn Plan Modal (triggered from Docs view harvest candidate cards) -->
 @if (showSpawnPlanModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" (keydown.escape)="closeSpawnPlan()">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm" (keydown.escape)="closeSpawnPlan()">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transition-colors">
       
-      <div class="p-4 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">Spawn Plan</h3>
@@ -705,7 +699,7 @@ This content will be used as context for the AI when generating requirements."
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">From: {{ spawnPlanCandidate()?.title }}</p>
       </div>
 
-      <div class="p-4 space-y-3 max-h-96 overflow-y-auto">
+      <div class="p-3 space-y-3 max-h-96 overflow-y-auto">
         <!-- System (required) -->
         <div>
           <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">System <span class="text-red-500">*</span></label>
@@ -798,7 +792,7 @@ This content will be used as context for the AI when generating requirements."
         }
       </div>
 
-      <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-2">
         <button (click)="closeSpawnPlan()" class="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
         <button
           (click)="executeSpawnPlan()"
@@ -817,16 +811,16 @@ This content will be used as context for the AI when generating requirements."
 }
 
 @if (showExportModal()) {
-  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col h-[80vh] transition-colors">
       
-      <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-blue-50 dark:bg-blue-900/20">
+      <div class="p-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-blue-50 dark:bg-blue-900/20">
          <div class="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
             <div>
-                <h2 class="text-xl font-bold text-gray-800 dark:text-gray-100">Create Work Session</h2>
+                <h2 class="text-base font-bold text-gray-800 dark:text-gray-100">Create Work Session</h2>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Context: {{ exportParentName() }} ({{ exportParentType() }})</p>
             </div>
          </div>
@@ -835,7 +829,7 @@ This content will be used as context for the AI when generating requirements."
          </button>
       </div>
 
-      <div class="p-6 flex-1 flex flex-col overflow-hidden">
+      <div class="p-3 flex-1 flex flex-col overflow-hidden">
          <div class="grid grid-cols-2 gap-4 mb-4">
              <div>
                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Platform</label>
@@ -874,12 +868,12 @@ This content will be used as context for the AI when generating requirements."
              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Generated Context (Editable)</label>
              <textarea 
                 [(ngModel)]="exportContextText"
-                class="flex-1 w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-4 border font-mono text-sm resize-none"
+                class="flex-1 w-full bg-white text-gray-900 border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-3 border font-mono text-sm resize-none"
              ></textarea>
          </div>
       </div>
       
-      <div class="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
+      <div class="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3">
          <button (click)="showExportModal.set(false)" class="px-4 py-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
          
          <button 

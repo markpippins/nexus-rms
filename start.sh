@@ -17,7 +17,7 @@ if ! kill -0 $SRV_PID 2>/dev/null; then
   exit 1
 fi
 
-echo "=== Starting Angular dev server (on :3000, proxying /api to :3101) ==="
+echo "=== Starting Angular dev server (on :4210, proxying /api to :3101) ==="
 cd "$SCRIPT_DIR"
 npx ng serve --proxy-config proxy.conf.json &
 NG_PID=$!
