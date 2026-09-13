@@ -24,13 +24,18 @@ interface HarvestEntry {
   tagFrequency?: number;
 }
 
+// Transcript rows are per-BLOCK turns (real turn source): each block carries
+// its own provenance.role; unit-level role is the arc owner and is exposed as
+// seg_role context only. Rows arrive ordered by block_index from nebula-srv.
 interface TranscriptUnit {
   turn_index: number;
-  heading: string;
   role: string | null;
-  body: string;
-  block_count: number;
-  blocks: TranscriptBlock[];
+  block_type: string | null;
+  content: string | null;
+  items: string[] | null;
+  seg_heading: string | null;
+  seg_role: string | null;
+  seg_index: number | null;
 }
 
 const ROLE_LABEL = (role: string | null | undefined): string => {
@@ -39,13 +44,6 @@ const ROLE_LABEL = (role: string | null | undefined): string => {
   if (role === 'assistant') return 'Assistant';
   return role.charAt(0).toUpperCase() + role.slice(1);
 };
-
-interface TranscriptBlock {
-  index: number;
-  type: 'paragraph' | 'code' | 'quote' | 'list' | 'diagram' | 'separator';
-  content?: string;
-  items?: string[];
-}
 
 
 
@@ -86,12 +84,10 @@ export class HarvestViewComponent {
     if (!query) return 0;
     let count = 0;
     for (const unit of this.transcriptUnits()) {
-      for (const block of unit.blocks) {
-        const text = block.content || block.items?.join(' ') || '';
-        const lower = text.toLowerCase();
-        let idx = -1;
-        while ((idx = lower.indexOf(query, idx + 1)) !== -1) count++;
-      }
+      const text = unit.content || unit.items?.join(' ') || '';
+      const lower = text.toLowerCase();
+      let idx = -1;
+      while ((idx = lower.indexOf(query, idx + 1)) !== -1) count++;
     }
     return count;
   });
