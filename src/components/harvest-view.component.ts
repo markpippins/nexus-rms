@@ -33,6 +33,13 @@ interface TranscriptUnit {
   blocks: TranscriptBlock[];
 }
 
+const ROLE_LABEL = (role: string | null | undefined): string => {
+  if (!role) return 'Turn';
+  if (role === 'user') return 'User';
+  if (role === 'assistant') return 'Assistant';
+  return role.charAt(0).toUpperCase() + role.slice(1);
+};
+
 interface TranscriptBlock {
   index: number;
   type: 'paragraph' | 'code' | 'quote' | 'list' | 'diagram' | 'separator';
