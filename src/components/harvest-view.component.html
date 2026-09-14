@@ -971,11 +971,6 @@ n                @if (dataService.selectedSystemId() || dataService.selectedSubs
                       {{ unit.block_type }}
                     </span>
                   }
-                  @if (unit.seg_heading && unit.seg_index !== null) {
-                    <span class="text-[10px] text-gray-400 dark:text-gray-500 truncate italic" [title]="unit.seg_heading">
-                      seg {{ unit.seg_index + 1 }}: {{ unit.seg_heading }}
-                    </span>
-                  }
                 </div>
                 @if (segmentMode() && unit.block_type !== 'separator') {
                   <div class="flex items-center gap-1 flex-shrink-0">

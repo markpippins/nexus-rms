@@ -24,17 +24,16 @@ interface HarvestEntry {
   tagFrequency?: number;
 }
 
-// Transcript rows are per-BLOCK turns (real turn source): each block carries
-// its own provenance.role; unit-level role is the arc owner and is exposed as
-// seg_role context only. Rows arrive ordered by block_index from nebula-srv.
+// Transcript rows are per-BLOCK turns (the real turn source): each block
+// carries its own provenance.role. Rows arrive ordered by block_index from
+// nebula-srv. The auto-generated arc heading is dropped as a label — it
+// repeated across many turns and never matched content reliably.
 interface TranscriptUnit {
   turn_index: number;
   role: string | null;
   block_type: string | null;
   content: string | null;
   items: string[] | null;
-  seg_heading: string | null;
-  seg_role: string | null;
   seg_index: number | null;
 }
 

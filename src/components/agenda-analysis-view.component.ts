@@ -15,7 +15,6 @@ interface TranscriptUnit {
   block_type: string | null;
   content: string | null;
   items: string[] | null;
-  seg_heading: string | null;
   seg_index: number | null;
 }
 
