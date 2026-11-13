@@ -40,7 +40,8 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": {
+          "options": { "host": "0.0.0.0",
+            "allowedHosts": true,
             "port": 4210,
             "proxyConfig": "proxy.conf.json"
           },
